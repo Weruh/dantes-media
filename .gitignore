@@ -27,3 +27,5 @@ dist-ssr
 *.sw?
 
 frontend/dist.zip
+frontend/dist.zip
+frontend/dist/
