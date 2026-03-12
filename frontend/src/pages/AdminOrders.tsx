@@ -6,7 +6,7 @@ import Alert from "../components/Alert";
 import { Input, SelectField, Textarea } from "../components/Input";
 import { Button } from "../components/Button";
 import { parseJsonSafely } from "../utils/http";
-import { productCategories } from "../data/productsData";
+import { defaultProductCategories } from "../data/catalogTypes";
 import { resetCatalogCache } from "../data/productsApi";
 
 type AdminOrder = {
@@ -92,7 +92,7 @@ const formatDateTime = (value: number | null) => {
 const defaultProductForm = (): ProductFormState => ({
   id: "",
   name: "",
-  category: productCategories[0] ?? "Accessories",
+  category: defaultProductCategories[0] ?? "Accessories",
   shortDesc: "",
   price: "",
   specs: "",
@@ -432,7 +432,7 @@ const AdminOrders = () => {
                   type="email"
                   value={adminEmail}
                   onChange={(event) => setAdminEmail(event.target.value)}
-                  placeholder="dantesmedia8@gmail.com"
+                  placeholder="Email"
                 />
                 <Input
                   label="Password"
@@ -483,7 +483,7 @@ const AdminOrders = () => {
                 value={productForm.category}
                 onChange={(event) => setProductField("category", event.target.value)}
               >
-                {productCategories.map((category) => (
+                {defaultProductCategories.map((category) => (
                   <option key={category} value={category}>
                     {category}
                   </option>

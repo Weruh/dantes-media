@@ -72,7 +72,7 @@ export const projectsData: ProjectItem[] = [
       "Reduced operational and security risk, strengthened business continuity, and improved readiness for security and regulatory audits.",
     summary:
       "Hardened critical infrastructure with layered physical security, environmental monitoring, and documented incident-response procedures.",
-    image: "/assets/IMG_1744 copy.jpg",
+    image: "/assets/IMG_1744.jpg",
   },
   {
     id: 6,
@@ -83,6 +83,6 @@ export const projectsData: ProjectItem[] = [
     solution: "Deployed standardized software stack with training sessions.",
     outcome: "Higher collaboration and streamlined document management.",
     summary: "Aligned teams on shared tools and usage patterns.",
-    image: "/assets/IMG_1778 copy.jpg",
+    image: "/assets/IMG_1778.jpg",
   },
 ];

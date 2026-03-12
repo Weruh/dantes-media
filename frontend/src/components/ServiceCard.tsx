@@ -47,6 +47,7 @@ const ServiceCard = ({
               alt={imageAlt ?? title}
               className={cn("h-56 w-full object-cover", imageClassName)}
               loading="lazy"
+              decoding="async"
               style={imageStyle}
             />
           ) : (

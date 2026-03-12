@@ -1,23 +1,25 @@
 services:
   - type: web
-    name: dantes-media-api
+    name: dantes-media
     env: node
     rootDir: .
-    buildCommand: npm install
-    startCommand: node server/index.js
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true
+    domains:
+      - dantesmediasolution.com
     envVars:
       - key: NODE_ENV
         value: production
       - key: PAYSTACK_CURRENCY
         value: KES
       - key: FRONTEND_URL
-        sync: false
+        value: https://dantesmediasolution.com
       - key: CORS_ORIGINS
-        sync: false
+        value: https://dantesmediasolution.com,https://www.dantesmediasolution.com
       - key: PAYSTACK_CALLBACK_URL
-        sync: false
+        value: https://dantesmediasolution.com/checkout/verify
       - key: PAYSTACK_SECRET_KEY
         sync: false
       - key: ADMIN_EMAIL
@@ -25,6 +27,20 @@ services:
       - key: ADMIN_PASSWORD
         sync: false
       - key: SELLER_NOTIFY_EMAIL
+        sync: false
+      - key: CONTACT_NOTIFY_EMAIL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_FROM
+        sync: false
+      - key: BREVO_REPLY_TO
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
+      - key: RESEND_REPLY_TO
         sync: false
       - key: SMTP_HOST
         sync: false
@@ -37,8 +53,6 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: SMTP_FROM
-        sync: false
-      - key: BREVO_API_KEY
         sync: false
       - key: WHATSAPP_ACCESS_TOKEN
         sync: false

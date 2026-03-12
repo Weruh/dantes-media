@@ -33,7 +33,12 @@ const PostDetail = () => {
         </div>
         <div className="mt-8 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="h-80 overflow-hidden bg-slate-100 md:h-96">
-            <img src={post.image} alt={post.title} className="h-full w-full object-cover" />
+            <img
+              src={post.image}
+              alt={post.title}
+              className="h-full w-full object-cover"
+              decoding="async"
+            />
           </div>
           <div>
             <Badge variant="outline">{post.category}</Badge>

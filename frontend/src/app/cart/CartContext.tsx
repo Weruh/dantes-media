@@ -1,6 +1,6 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { ProductItem } from "../../data/productsData";
+import type { ProductItem } from "../../data/catalogTypes";
 
 export type CartItem = {
   id: string;
@@ -21,7 +21,16 @@ type CartContextValue = {
   subtotal: number;
 };
 
-const CART_KEY = "dantes-media-cart";
+type StoredCartPayload = {
+  version: number;
+  updatedAt: number;
+  items: unknown[];
+};
+
+const CART_STORAGE_VERSION = 2;
+const CART_KEY = "dantes-media-cart-v2";
+const LEGACY_CART_KEYS = ["dantes-media-cart"];
+const CART_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 const FALLBACK_PRODUCT_IMAGE = "/assets/consultacy.jpg";
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
@@ -73,9 +82,15 @@ const readStoredCart = (): CartItem[] => {
 
   try {
     const parsed = JSON.parse(stored) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
 
-    return parsed
+    const payload = parsed as Partial<StoredCartPayload>;
+    const updatedAt = Number(payload.updatedAt);
+    if (payload.version !== CART_STORAGE_VERSION) return [];
+    if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > CART_MAX_AGE_MS) return [];
+    if (!Array.isArray(payload.items)) return [];
+
+    return payload.items
       .map((item) => normalizeStoredCartItem(item))
       .filter((item): item is CartItem => item !== null);
   } catch {
@@ -88,7 +103,24 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(CART_KEY, JSON.stringify(items));
+    for (const legacyKey of LEGACY_CART_KEYS) {
+      window.localStorage.removeItem(legacyKey);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (items.length === 0) {
+      window.localStorage.removeItem(CART_KEY);
+      return;
+    }
+
+    const payload: StoredCartPayload = {
+      version: CART_STORAGE_VERSION,
+      updatedAt: Date.now(),
+      items,
+    };
+    window.localStorage.setItem(CART_KEY, JSON.stringify(payload));
   }, [items]);
 
   const addItem = (product: ProductItem, quantity = 1) => {

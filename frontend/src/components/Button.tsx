@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ComponentPropsWithoutRef } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "../utils/cn";
 
@@ -25,15 +25,18 @@ export const Button = ({ variant = "primary", className, ...props }: ButtonProps
   <button className={buttonClasses(variant, className)} {...props} />
 );
 
-type ButtonLinkProps = {
-  to: string;
+type ButtonLinkProps = ComponentPropsWithoutRef<typeof Link> & {
   variant?: ButtonVariant;
-  className?: string;
-  children: ReactNode;
 };
 
-export const ButtonLink = ({ to, variant = "primary", className, children }: ButtonLinkProps) => (
-  <Link to={to} className={buttonClasses(variant, className)}>
+export const ButtonLink = ({
+  to,
+  variant = "primary",
+  className,
+  children,
+  ...props
+}: ButtonLinkProps) => (
+  <Link to={to} className={buttonClasses(variant, className)} {...props}>
     {children}
   </Link>
 );

@@ -12,6 +12,8 @@ const serverDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(serverDir, "..");
 const rootEnvPath = resolve(projectRoot, ".env");
 const serverEnvPath = resolve(serverDir, ".env");
+const frontendDistPath = resolve(projectRoot, "frontend", "dist");
+const frontendIndexPath = resolve(frontendDistPath, "index.html");
 
 if (existsSync(rootEnvPath)) {
   loadEnv({ path: rootEnvPath });
@@ -32,6 +34,9 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const ADMIN_SESSION_TTL_MS = Number(process.env.ADMIN_SESSION_TTL_MS || 1000 * 60 * 60 * 8);
 const SELLER_NOTIFY_EMAIL = (process.env.SELLER_NOTIFY_EMAIL || "").trim();
+const CONTACT_NOTIFY_EMAIL = (
+  process.env.CONTACT_NOTIFY_EMAIL || "dantesmedia8@gmail.com"
+).trim();
 const WHATSAPP_WEBHOOK_URL = (process.env.WHATSAPP_WEBHOOK_URL || "").trim();
 const WHATSAPP_ACCESS_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN || "").trim();
 const WHATSAPP_PHONE_NUMBER_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
@@ -46,17 +51,50 @@ const SMTP_USER = (process.env.SMTP_USER || "").trim();
 const SMTP_PASS = process.env.SMTP_PASS || "";
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || "no-reply@dantesmedia.local";
 const BREVO_API_KEY = (process.env.BREVO_API_KEY || "").trim();
+const BREVO_FROM = (process.env.BREVO_FROM || "").trim();
+const BREVO_REPLY_TO = (process.env.BREVO_REPLY_TO || "").trim();
+const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
+const RESEND_FROM = (
+  process.env.RESEND_FROM || "Dantes Media <onboarding@resend.dev>"
+).trim();
+const RESEND_REPLY_TO = (process.env.RESEND_REPLY_TO || "").trim();
 const CUSTOM_PRODUCTS_PATH = resolve(process.cwd(), "server/data/custom-products.json");
+const QUOTE_REQUESTS_PATH = resolve(process.cwd(), "server/data/quote-requests.json");
 
 const app = express();
 const orders = new Map();
 const adminSessions = new Map();
+const hasBuiltFrontend = existsSync(frontendIndexPath);
 const allowedOrigins = CORS_ORIGINS.split(",")
   .map((value) => value.trim())
   .filter(Boolean);
-const emailConfigured = Boolean(
-  SELLER_NOTIFY_EMAIL && SMTP_HOST && SMTP_USER && SMTP_PASS
-);
+
+const isNonEmptyString = (value) =>
+  typeof value === "string" && value.trim().length > 0;
+
+const parseMailbox = (value, fallbackName = "") => {
+  if (!isNonEmptyString(value)) return null;
+
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(.*)<([^<>]+)>$/);
+
+  if (match) {
+    const name = match[1].trim().replace(/^"|"$/g, "");
+    const email = match[2].trim();
+    if (!email) return null;
+    return { email, name: name || fallbackName || email };
+  }
+
+  return {
+    email: trimmed,
+    name: fallbackName || trimmed,
+  };
+};
+
+const brevoSender = parseMailbox(BREVO_FROM, "Dantes Media");
+const emailConfigured = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
+const brevoConfigured = Boolean(BREVO_API_KEY && brevoSender?.email);
+const resendConfigured = Boolean(RESEND_API_KEY && RESEND_FROM);
 const mailTransporter = emailConfigured
   ? nodemailer.createTransport({
       host: SMTP_HOST,
@@ -68,12 +106,10 @@ const mailTransporter = emailConfigured
       },
     })
   : null;
+const emailChannelConfigured = Boolean(brevoConfigured || resendConfigured || mailTransporter);
 const whatsappCloudConfigured = Boolean(
   WHATSAPP_ACCESS_TOKEN && WHATSAPP_PHONE_NUMBER_ID && WHATSAPP_RECIPIENT_PHONE
 );
-
-const isNonEmptyString = (value) =>
-  typeof value === "string" && value.trim().length > 0;
 
 const toSlug = (value) =>
   value
@@ -175,6 +211,51 @@ const loadCustomProducts = () => {
 };
 
 const customProducts = loadCustomProducts();
+
+const loadQuoteRequests = () => {
+  if (!existsSync(QUOTE_REQUESTS_PATH)) return [];
+
+  try {
+    const raw = readFileSync(QUOTE_REQUESTS_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => {
+        const quote = parseQuotePayload(item);
+        return {
+          id:
+            typeof item?.id === "string" && item.id.trim().length > 0
+              ? item.id.trim()
+              : `DM-${Date.now()}-${crypto.randomBytes(5).toString("hex")}`,
+          createdAt:
+            Number.isFinite(Number(item?.createdAt)) && Number(item.createdAt) > 0
+              ? Number(item.createdAt)
+              : Date.now(),
+          notificationStatus:
+            item?.notificationStatus === "sent" ? "sent" : "pending",
+          notificationError:
+            typeof item?.notificationError === "string" ? item.notificationError.trim() : "",
+          ...quote,
+        };
+      })
+      .sort((a, b) => b.createdAt - a.createdAt);
+  } catch (error) {
+    console.error("[contact] failed to load quote requests:", error);
+    return [];
+  }
+};
+
+const quoteRequests = [];
+
+const persistQuoteRequests = () => {
+  try {
+    mkdirSync(dirname(QUOTE_REQUESTS_PATH), { recursive: true });
+    writeFileSync(QUOTE_REQUESTS_PATH, JSON.stringify(quoteRequests, null, 2), "utf8");
+  } catch (error) {
+    console.error("[contact] failed to persist quote requests:", error);
+  }
+};
 
 const normalizeProductId = (value) =>
   typeof value === "string"
@@ -326,6 +407,27 @@ const buildLineItems = (items) =>
   });
 
 const formatAmount = (value) => `KES ${value.toLocaleString("en-KE")}`;
+const formatOrderDateTime = (value) => {
+  if (!Number.isFinite(value)) return "N/A";
+
+  try {
+    return new Intl.DateTimeFormat("en-KE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Africa/Nairobi",
+    }).format(new Date(value));
+  } catch {
+    return new Date(value).toISOString();
+  }
+};
+
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 const toOrderResponse = (order) => ({
   reference: order.reference,
@@ -342,14 +444,63 @@ const toOrderResponse = (order) => ({
   paidVia: order.paidVia || null,
   notifications: {
     emailNotifiedAt: order.emailNotifiedAt || null,
+    customerEmailNotifiedAt: order.customerEmailNotifiedAt || null,
     whatsappNotifiedAt: order.whatsappNotifiedAt || null,
   },
 });
+
+const quotePhoneRegex = /^[+\d\s()-]{7,}$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const parseQuotePayload = (payload) => {
+  const fullName = isNonEmptyString(payload?.fullName) ? payload.fullName.trim() : "";
+  const company = isNonEmptyString(payload?.company) ? payload.company.trim() : "";
+  const email = isNonEmptyString(payload?.email) ? payload.email.trim() : "";
+  const phone = isNonEmptyString(payload?.phone) ? payload.phone.trim() : "";
+  const location = isNonEmptyString(payload?.location) ? payload.location.trim() : "";
+  const serviceType = isNonEmptyString(payload?.serviceType) ? payload.serviceType.trim() : "";
+  const budgetRange = isNonEmptyString(payload?.budgetRange) ? payload.budgetRange.trim() : "";
+  const message = isNonEmptyString(payload?.message) ? payload.message.trim() : "";
+
+  if (fullName.length < 2) throw new Error("Full name is required.");
+  if (!emailRegex.test(email)) throw new Error("Valid email is required.");
+  if (!quotePhoneRegex.test(phone)) throw new Error("Valid phone number is required.");
+  if (location.length < 2) throw new Error("Location is required.");
+  if (serviceType.length < 2) throw new Error("Service type is required.");
+  if (message.length < 10) throw new Error("Project details are required.");
+
+  return {
+    fullName,
+    company,
+    email,
+    phone,
+    location,
+    serviceType,
+    budgetRange,
+    message,
+  };
+};
+
+const createQuoteMessage = (quote) =>
+  [
+    "New quote request from website contact form",
+    `Full name: ${quote.fullName}`,
+    `Company: ${quote.company || "N/A"}`,
+    `Email: ${quote.email}`,
+    `Phone: ${quote.phone}`,
+    `Location: ${quote.location}`,
+    `Service type: ${quote.serviceType}`,
+    `Budget range: ${quote.budgetRange || "N/A"}`,
+    "Project details:",
+    quote.message,
+  ].join("\n");
 
 const createReference = () => {
   const token = crypto.randomBytes(5).toString("hex");
   return `DM-${Date.now()}-${token}`;
 };
+
+quoteRequests.push(...loadQuoteRequests());
 
 const paystackRequest = async (path, init = {}) => {
   if (!PAYSTACK_SECRET_KEY) {
@@ -439,63 +590,292 @@ const assertCheckoutPayload = (payload) => {
   };
 };
 
+const buildOrderLineItems = (order) =>
+  buildLineItems(order.items).map((item) => {
+    const lineAmount =
+      typeof item.lineTotal === "number" ? formatAmount(item.lineTotal) : "N/A";
+
+    return {
+      ...item,
+      lineAmount,
+    };
+  });
+
 const createOrderMessage = (order) => {
-  const itemLines = buildLineItems(order.items)
-    .map((item) => {
-      const lineAmount =
-        typeof item.lineTotal === "number" ? formatAmount(item.lineTotal) : "N/A";
-      return `- ${item.name} (x${item.quantity}) - ${lineAmount}`;
-    })
+  const itemLines = buildOrderLineItems(order)
+    .map((item) => `- ${item.name} | Qty: ${item.quantity} | Total: ${item.lineAmount}`)
     .join("\n");
 
   return [
-    `New paid order: ${order.reference}`,
-    `Amount: ${formatAmount(order.amountMinor / 100)} ${order.currency}`,
-    `Customer: ${order.customer.fullName} (${order.customer.email}, ${order.customer.phone})`,
-    `Address: ${order.customer.address}, ${order.customer.city}, ${order.customer.county}`,
-    `Delivery: ${order.delivery.deliveryDate} | ${order.delivery.deliveryWindow}`,
+    `New paid order received`,
+    `Reference: ${order.reference}`,
+    `Paid at: ${formatOrderDateTime(order.paidAt || order.createdAt)}`,
+    `Payment source: ${order.paidVia || "N/A"}`,
+    "",
+    "Buyer credentials",
+    `Full name: ${order.customer.fullName}`,
+    `Email: ${order.customer.email}`,
+    `Phone: ${order.customer.phone}`,
+    `Payment phone: ${order.paymentPhone || order.customer.phone || "N/A"}`,
+    "",
+    "Delivery details",
+    `Address: ${order.customer.address}`,
+    `City: ${order.customer.city}`,
+    `County: ${order.customer.county}`,
+    `Delivery date: ${order.delivery.deliveryDate}`,
+    `Delivery window: ${order.delivery.deliveryWindow}`,
     order.delivery.deliveryNotes ? `Delivery notes: ${order.delivery.deliveryNotes}` : "",
-    "Items:",
+    "",
+    "Products purchased",
     itemLines,
+    "",
+    "Order totals",
+    `Subtotal: ${formatAmount(order.totals.subtotal)}`,
+    `Delivery fee: ${formatAmount(order.totals.deliveryFee)}`,
+    `Total paid: ${formatAmount(order.amountMinor / 100)} ${order.currency}`,
   ]
     .filter(Boolean)
     .join("\n");
 };
 
-const notifyViaEmail = async (order) => {
-  if (!SELLER_NOTIFY_EMAIL || order.emailNotifiedAt) return false;
+const createOrderEmailHtml = (order) => {
+  const lineItems = buildOrderLineItems(order)
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:8px;border:1px solid #dbe4f0;">${escapeHtml(item.name)}</td>
+          <td style="padding:8px;border:1px solid #dbe4f0;text-align:center;">${item.quantity}</td>
+          <td style="padding:8px;border:1px solid #dbe4f0;text-align:right;">${escapeHtml(
+            item.lineAmount
+          )}</td>
+        </tr>`
+    )
+    .join("");
 
-  const subject = `Paid order ${order.reference}`;
-  const text = createOrderMessage(order);
+  return `
+    <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;">
+      <div style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;">
+        <h1 style="margin:0 0 8px;font-size:24px;">New paid order received</h1>
+        <p style="margin:0 0 20px;color:#475569;">Reference: <strong>${escapeHtml(
+          order.reference
+        )}</strong></p>
 
-  if (mailTransporter) {
-    try {
-      await mailTransporter.sendMail({
-        from: SMTP_FROM,
-        to: SELLER_NOTIFY_EMAIL,
-        subject,
-        text,
-      });
-      order.emailNotifiedAt = Date.now();
-      return true;
-    } catch (error) {
-      console.error("[notify] smtp send failed:", error);
-    }
-  }
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:16px;margin:0 0 10px;">Buyer credentials</h2>
+          <p style="margin:4px 0;"><strong>Full name:</strong> ${escapeHtml(
+            order.customer.fullName
+          )}</p>
+          <p style="margin:4px 0;"><strong>Email:</strong> ${escapeHtml(order.customer.email)}</p>
+          <p style="margin:4px 0;"><strong>Phone:</strong> ${escapeHtml(order.customer.phone)}</p>
+          <p style="margin:4px 0;"><strong>Payment phone:</strong> ${escapeHtml(
+            order.paymentPhone || order.customer.phone || "N/A"
+          )}</p>
+        </div>
 
-  if (BREVO_API_KEY) {
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:16px;margin:0 0 10px;">Delivery details</h2>
+          <p style="margin:4px 0;"><strong>Address:</strong> ${escapeHtml(
+            order.customer.address
+          )}</p>
+          <p style="margin:4px 0;"><strong>City:</strong> ${escapeHtml(order.customer.city)}</p>
+          <p style="margin:4px 0;"><strong>County:</strong> ${escapeHtml(
+            order.customer.county
+          )}</p>
+          <p style="margin:4px 0;"><strong>Delivery date:</strong> ${escapeHtml(
+            order.delivery.deliveryDate
+          )}</p>
+          <p style="margin:4px 0;"><strong>Delivery window:</strong> ${escapeHtml(
+            order.delivery.deliveryWindow
+          )}</p>
+          ${
+            order.delivery.deliveryNotes
+              ? `<p style="margin:4px 0;"><strong>Notes:</strong> ${escapeHtml(
+                  order.delivery.deliveryNotes
+                )}</p>`
+              : ""
+          }
+        </div>
+
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:16px;margin:0 0 10px;">Products purchased</h2>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="padding:8px;border:1px solid #dbe4f0;text-align:left;">Product</th>
+                <th style="padding:8px;border:1px solid #dbe4f0;text-align:center;">Qty</th>
+                <th style="padding:8px;border:1px solid #dbe4f0;text-align:right;">Line total</th>
+              </tr>
+            </thead>
+            <tbody>${lineItems}</tbody>
+          </table>
+        </div>
+
+        <div>
+          <h2 style="font-size:16px;margin:0 0 10px;">Order totals</h2>
+          <p style="margin:4px 0;"><strong>Subtotal:</strong> ${escapeHtml(
+            formatAmount(order.totals.subtotal)
+          )}</p>
+          <p style="margin:4px 0;"><strong>Delivery fee:</strong> ${escapeHtml(
+            formatAmount(order.totals.deliveryFee)
+          )}</p>
+          <p style="margin:4px 0;"><strong>Total paid:</strong> ${escapeHtml(
+            `${formatAmount(order.amountMinor / 100)} ${order.currency}`
+          )}</p>
+          <p style="margin:4px 0;"><strong>Paid at:</strong> ${escapeHtml(
+            formatOrderDateTime(order.paidAt || order.createdAt)
+          )}</p>
+          <p style="margin:4px 0;"><strong>Payment source:</strong> ${escapeHtml(
+            order.paidVia || "N/A"
+          )}</p>
+        </div>
+      </div>
+    </div>`;
+};
+
+const createCustomerOrderMessage = (order) => {
+  const itemLines = buildOrderLineItems(order)
+    .map((item) => `- ${item.name} | Qty: ${item.quantity} | Total: ${item.lineAmount}`)
+    .join("\n");
+
+  return [
+    `Hello ${order.customer.fullName},`,
+    "",
+    "Your order has been received and payment has been confirmed.",
+    `Reference: ${order.reference}`,
+    `Paid at: ${formatOrderDateTime(order.paidAt || order.createdAt)}`,
+    "",
+    "Products purchased",
+    itemLines,
+    "",
+    "Delivery details",
+    `Address: ${order.customer.address}, ${order.customer.city}, ${order.customer.county}`,
+    `Delivery date: ${order.delivery.deliveryDate}`,
+    `Delivery window: ${order.delivery.deliveryWindow}`,
+    order.delivery.deliveryNotes ? `Delivery notes: ${order.delivery.deliveryNotes}` : "",
+    "",
+    "Order totals",
+    `Subtotal: ${formatAmount(order.totals.subtotal)}`,
+    `Delivery fee: ${formatAmount(order.totals.deliveryFee)}`,
+    `Total paid: ${formatAmount(order.amountMinor / 100)} ${order.currency}`,
+    "",
+    "If you need help with this order, reply to this email.",
+    "",
+    "Dantes Media",
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
+
+const createCustomerOrderEmailHtml = (order) => {
+  const lineItems = buildOrderLineItems(order)
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:8px;border:1px solid #dbe4f0;">${escapeHtml(item.name)}</td>
+          <td style="padding:8px;border:1px solid #dbe4f0;text-align:center;">${item.quantity}</td>
+          <td style="padding:8px;border:1px solid #dbe4f0;text-align:right;">${escapeHtml(
+            item.lineAmount
+          )}</td>
+        </tr>`
+    )
+    .join("");
+
+  return `
+    <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;">
+      <div style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;">
+        <h1 style="margin:0 0 8px;font-size:24px;">Order confirmed</h1>
+        <p style="margin:0 0 8px;">Hello ${escapeHtml(order.customer.fullName)},</p>
+        <p style="margin:0 0 20px;color:#475569;">
+          Your payment has been confirmed and we have received your order.
+        </p>
+
+        <div style="margin-bottom:24px;">
+          <p style="margin:4px 0;"><strong>Reference:</strong> ${escapeHtml(order.reference)}</p>
+          <p style="margin:4px 0;"><strong>Paid at:</strong> ${escapeHtml(
+            formatOrderDateTime(order.paidAt || order.createdAt)
+          )}</p>
+        </div>
+
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:16px;margin:0 0 10px;">Products purchased</h2>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="padding:8px;border:1px solid #dbe4f0;text-align:left;">Product</th>
+                <th style="padding:8px;border:1px solid #dbe4f0;text-align:center;">Qty</th>
+                <th style="padding:8px;border:1px solid #dbe4f0;text-align:right;">Line total</th>
+              </tr>
+            </thead>
+            <tbody>${lineItems}</tbody>
+          </table>
+        </div>
+
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:16px;margin:0 0 10px;">Delivery details</h2>
+          <p style="margin:4px 0;"><strong>Address:</strong> ${escapeHtml(
+            order.customer.address
+          )}</p>
+          <p style="margin:4px 0;"><strong>City:</strong> ${escapeHtml(order.customer.city)}</p>
+          <p style="margin:4px 0;"><strong>County:</strong> ${escapeHtml(
+            order.customer.county
+          )}</p>
+          <p style="margin:4px 0;"><strong>Delivery date:</strong> ${escapeHtml(
+            order.delivery.deliveryDate
+          )}</p>
+          <p style="margin:4px 0;"><strong>Delivery window:</strong> ${escapeHtml(
+            order.delivery.deliveryWindow
+          )}</p>
+          ${
+            order.delivery.deliveryNotes
+              ? `<p style="margin:4px 0;"><strong>Notes:</strong> ${escapeHtml(
+                  order.delivery.deliveryNotes
+                )}</p>`
+              : ""
+          }
+        </div>
+
+        <div style="margin-bottom:24px;">
+          <h2 style="font-size:16px;margin:0 0 10px;">Order totals</h2>
+          <p style="margin:4px 0;"><strong>Subtotal:</strong> ${escapeHtml(
+            formatAmount(order.totals.subtotal)
+          )}</p>
+          <p style="margin:4px 0;"><strong>Delivery fee:</strong> ${escapeHtml(
+            formatAmount(order.totals.deliveryFee)
+          )}</p>
+          <p style="margin:4px 0;"><strong>Total paid:</strong> ${escapeHtml(
+            `${formatAmount(order.amountMinor / 100)} ${order.currency}`
+          )}</p>
+        </div>
+
+        <p style="margin:0;color:#475569;">If you need help with this order, reply to this email.</p>
+      </div>
+    </div>`;
+};
+
+const sendPlainTextEmail = async ({ to, subject, text, html = "", replyTo = "" }) => {
+  const normalizedReplyTo = isNonEmptyString(replyTo)
+    ? replyTo.trim()
+    : isNonEmptyString(BREVO_REPLY_TO)
+      ? BREVO_REPLY_TO
+    : isNonEmptyString(RESEND_REPLY_TO)
+      ? RESEND_REPLY_TO
+      : "";
+
+  if (brevoConfigured && brevoSender) {
+    const brevoReplyTo = parseMailbox(normalizedReplyTo);
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Accept: "application/json",
         "api-key": BREVO_API_KEY,
       },
       body: JSON.stringify({
-        sender: { email: SMTP_FROM },
-        to: [{ email: SELLER_NOTIFY_EMAIL }],
+        sender: brevoSender,
+        to: [{ email: to }],
         subject,
         textContent: text,
+        ...(html ? { htmlContent: html } : {}),
+        ...(brevoReplyTo ? { replyTo: brevoReplyTo } : {}),
       }),
     });
 
@@ -503,12 +883,84 @@ const notifyViaEmail = async (order) => {
       const body = await response.text();
       throw new Error(`Brevo email API failed (${response.status}): ${body}`);
     }
-
-    order.emailNotifiedAt = Date.now();
     return true;
   }
 
-  return false;
+  if (resendConfigured) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: RESEND_FROM,
+        to: [to],
+        subject,
+        text,
+        ...(html ? { html } : {}),
+        ...(normalizedReplyTo ? { reply_to: normalizedReplyTo } : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Resend email API failed (${response.status}): ${body}`);
+    }
+    return true;
+  }
+
+  if (mailTransporter) {
+    try {
+      await mailTransporter.sendMail({
+        from: SMTP_FROM,
+        to,
+        subject,
+        text,
+        ...(html ? { html } : {}),
+        ...(normalizedReplyTo ? { replyTo: normalizedReplyTo } : {}),
+      });
+      return true;
+    } catch (error) {
+      console.error("[notify] smtp send failed:", error);
+    }
+  }
+
+  throw new Error("Email notifications are not configured.");
+};
+
+const notifyViaEmail = async (order) => {
+  if (!SELLER_NOTIFY_EMAIL || order.emailNotifiedAt) return false;
+
+  const subject = `Paid order ${order.reference}`;
+  const text = createOrderMessage(order);
+  const html = createOrderEmailHtml(order);
+  await sendPlainTextEmail({
+    to: SELLER_NOTIFY_EMAIL,
+    subject,
+    text,
+    html,
+    replyTo: order.customer.email,
+  });
+  order.emailNotifiedAt = Date.now();
+  return true;
+};
+
+const notifyCustomerViaEmail = async (order) => {
+  if (!isNonEmptyString(order.customer?.email) || order.customerEmailNotifiedAt) return false;
+
+  const subject = `Order confirmed ${order.reference}`;
+  const text = createCustomerOrderMessage(order);
+  const html = createCustomerOrderEmailHtml(order);
+  await sendPlainTextEmail({
+    to: order.customer.email,
+    subject,
+    text,
+    html,
+    replyTo: SELLER_NOTIFY_EMAIL,
+  });
+  order.customerEmailNotifiedAt = Date.now();
+  return true;
 };
 
 const notifyViaWhatsappWebhook = async (order) => {
@@ -597,6 +1049,7 @@ const notifyViaWhatsapp = async (order) => {
 const notifySeller = async (order) => {
   const tasks = [];
   if (!order.emailNotifiedAt) tasks.push(notifyViaEmail(order));
+  if (!order.customerEmailNotifiedAt) tasks.push(notifyCustomerViaEmail(order));
   if (!order.whatsappNotifiedAt) tasks.push(notifyViaWhatsapp(order));
 
   if (tasks.length === 0) return;
@@ -735,7 +1188,11 @@ app.use(
 );
 
 app.get("/", (_req, res) => {
-  res.status(200).send("Dantes Media API is running.");
+  if (hasBuiltFrontend) {
+    return res.sendFile(frontendIndexPath);
+  }
+
+  return res.status(200).send("Dantes Media API is running.");
 });
 
 app.get("/api/health", (_req, res) => {
@@ -744,9 +1201,11 @@ app.get("/api/health", (_req, res) => {
     paystackConfigured: Boolean(PAYSTACK_SECRET_KEY),
     adminConfigured: adminCredentialsConfigured,
     notificationChannels: {
-      email: Boolean(SELLER_NOTIFY_EMAIL && (mailTransporter || BREVO_API_KEY)),
-      emailViaSmtp: Boolean(SELLER_NOTIFY_EMAIL && mailTransporter),
-      emailViaBrevoApi: Boolean(SELLER_NOTIFY_EMAIL && BREVO_API_KEY),
+      email: Boolean(SELLER_NOTIFY_EMAIL && emailChannelConfigured),
+      contactEmail: Boolean(CONTACT_NOTIFY_EMAIL && emailChannelConfigured),
+      emailViaBrevoApi: Boolean(brevoConfigured),
+      emailViaResendApi: Boolean(resendConfigured),
+      emailViaSmtp: Boolean(mailTransporter),
       whatsapp: Boolean(whatsappCloudConfigured || WHATSAPP_WEBHOOK_URL),
       whatsappViaCloudApi: whatsappCloudConfigured,
       whatsappViaWebhook: Boolean(WHATSAPP_WEBHOOK_URL),
@@ -793,6 +1252,52 @@ app.post(
 );
 
 app.use(express.json());
+
+app.post("/api/contact/quote", async (req, res) => {
+  let quote;
+  try {
+    quote = parseQuotePayload(req.body);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid quote request payload.";
+    return res.status(400).json({ message });
+  }
+
+  const subject = `Quote request from ${quote.fullName}`;
+  const text = createQuoteMessage(quote);
+  const record = {
+    id: createReference(),
+    createdAt: Date.now(),
+    notificationStatus: "pending",
+    notificationError: "",
+    ...quote,
+  };
+
+  quoteRequests.unshift(record);
+  persistQuoteRequests();
+
+  try {
+    await sendPlainTextEmail({
+      to: CONTACT_NOTIFY_EMAIL,
+      subject,
+      text,
+      replyTo: quote.email,
+    });
+    record.notificationStatus = "sent";
+    record.notificationError = "";
+    persistQuoteRequests();
+    return res.status(201).json({ message: "Quote request sent." });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Quote request notification could not be sent.";
+    record.notificationStatus = "pending";
+    record.notificationError = message;
+    persistQuoteRequests();
+    console.error("[contact] quote notification failed:", message);
+    return res.status(202).json({
+      message: "Quote request received. We'll follow up shortly.",
+    });
+  }
+});
 
 app.get("/api/products/custom", (_req, res) => {
   const products = Array.from(customProducts.values()).sort((a, b) =>
@@ -1032,6 +1537,14 @@ app.get("/api/paystack/verify/:reference", async (req, res) => {
   }
 });
 
+if (hasBuiltFrontend) {
+  app.use(express.static(frontendDistPath));
+
+  app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => {
+    res.sendFile(frontendIndexPath);
+  });
+}
+
 app.use((error, req, res, next) => {
   if (res.headersSent) {
     return next(error);
@@ -1075,9 +1588,9 @@ app.listen(PORT, () => {
       "[paystack-api] ADMIN_EMAIL and/or ADMIN_PASSWORD is not set. Admin endpoints are disabled."
     );
   }
-  if (!SELLER_NOTIFY_EMAIL && !whatsappCloudConfigured && !WHATSAPP_WEBHOOK_URL) {
+  if (!SELLER_NOTIFY_EMAIL && !CONTACT_NOTIFY_EMAIL && !whatsappCloudConfigured && !WHATSAPP_WEBHOOK_URL) {
     console.warn(
-      "[paystack-api] seller notifications are not configured. Set SELLER_NOTIFY_EMAIL and/or WhatsApp envs."
+      "[paystack-api] notifications are not configured. Set CONTACT_NOTIFY_EMAIL or SELLER_NOTIFY_EMAIL and an email provider or WhatsApp envs."
     );
   }
 });

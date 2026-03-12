@@ -67,6 +67,8 @@ const PillarDetail = () => {
                 alt=""
                 aria-hidden="true"
                 className="h-56 w-full object-cover object-top md:h-60"
+                loading="lazy"
+                decoding="async"
               />
             </Card>
           ))}

@@ -63,6 +63,8 @@ const Cart = () => {
                     src={resolveCartImageSrc(productImageById.get(item.id) ?? item.image)}
                     alt={item.name}
                     className="h-20 w-20 rounded-2xl object-cover"
+                    loading="lazy"
+                    decoding="async"
                     onError={(event) => {
                       const target = event.currentTarget;
                       if (target.dataset.fallback === "1") return;

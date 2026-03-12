@@ -1,5 +1,6 @@
 ﻿import { Helmet } from "react-helmet-async";
 import Section from "../components/Section";
+import { useNavigate } from "react-router-dom";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import SectionHeading from "../components/SectionHeading";
@@ -8,6 +9,12 @@ import { ButtonLink } from "../components/Button";
 import { productSolutionImageMap, productSolutionsData } from "../data/productSolutionsData";
 
 const Services = () => {
+  const navigate = useNavigate();
+
+  const navigateToServiceProducts = (category: string) => {
+    navigate(`/shop?category=${encodeURIComponent(category)}`);
+  };
+
   return (
     <>
       <Helmet>
@@ -48,10 +55,20 @@ const Services = () => {
         <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {productSolutionsData.map((solution) => {
             const image = productSolutionImageMap[solution.id] ?? "/assets/consultacy.jpg";
+            const productTarget = `/shop?category=${encodeURIComponent(solution.shopCategory)}`;
             return (
               <Card
                 key={solution.id}
-                className="group relative flex h-full flex-col overflow-hidden border-white/20 bg-transparent text-white"
+                role="link"
+                tabIndex={0}
+                onClick={() => navigateToServiceProducts(solution.shopCategory)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigateToServiceProducts(solution.shopCategory);
+                  }
+                }}
+                className="group relative flex h-full cursor-pointer flex-col overflow-hidden border-white/20 bg-transparent text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               >
                 {image && (
                   <img
@@ -59,6 +76,8 @@ const Services = () => {
                     alt=""
                     aria-hidden="true"
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    loading="lazy"
+                    decoding="async"
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-br from-ink-900/75 via-ink-900/55 to-ink-900/20" />
@@ -75,9 +94,10 @@ const Services = () => {
                   </ul>
                   <div className="mt-auto flex flex-col gap-2 pt-6">
                     <ButtonLink
-                      to={`/shop?category=${encodeURIComponent(solution.primaryCategory)}`}
+                      to={productTarget}
                       variant="secondary"
                       className="border-white/70 text-white hover:border-white/90 hover:text-white hover:bg-white/10"
+                      onClick={(event) => event.stopPropagation()}
                     >
                       View products
                     </ButtonLink>
@@ -85,6 +105,7 @@ const Services = () => {
                       to="/contact?tab=quote&serviceType=General%20Quote"
                       variant="secondary"
                       className="border-white/70 text-white hover:border-white/90 hover:text-white hover:bg-white/10"
+                      onClick={(event) => event.stopPropagation()}
                     >
                       Talk to Sales
                     </ButtonLink>

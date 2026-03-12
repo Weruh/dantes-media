@@ -1,5 +1,5 @@
-﻿import { Link } from "react-router-dom";
-import { Facebook, Instagram, Linkedin } from "lucide-react";
+import { Link } from "react-router-dom";
+import { SiTiktok } from "react-icons/si";
 
 const Footer = () => {
   return (
@@ -38,24 +38,19 @@ const Footer = () => {
           <div className="mt-4">
             <h4 className="font-semibold text-ink-900">Social</h4>
             <div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-500">
-              <span className="inline-flex items-center gap-2">
-                <Linkedin className="h-4 w-4 text-ink-400" aria-hidden="true" />
-                LinkedIn
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <Instagram className="h-4 w-4 text-ink-400" aria-hidden="true" />
-                Instagram
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <Facebook className="h-4 w-4 text-ink-400" aria-hidden="true" />
-                Facebook
-              </span>
+              <a
+                href="https://www.tiktok.com/@dantesmedia0"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="TikTok"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 hover:border-slate-300 hover:text-ink-900"
+              >
+                <SiTiktok className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">TikTok</span>
+              </a>
             </div>
           </div>
         </div>
-      </div>
-      <div className="border-t border-slate-100 py-4 text-center text-xs text-ink-400">
-        (c) {new Date().getFullYear()} Dantes Media. All rights reserved.
       </div>
     </footer>
   );

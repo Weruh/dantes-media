@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
 import { loadCatalogProducts } from "../data/productsApi";
-import type { ProductItem } from "../data/productsData";
-import { productsData } from "../data/productsData";
+import type { ProductItem } from "../data/catalogTypes";
 
 export const useCatalogProducts = () => {
-  const [products, setProducts] = useState<ProductItem[]>(productsData);
+  const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
 
     const run = async () => {
-      const catalog = await loadCatalogProducts();
-      if (active) {
-        setProducts(catalog);
-        setLoading(false);
+      try {
+        const catalog = await loadCatalogProducts();
+        if (active) {
+          setProducts(catalog);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 

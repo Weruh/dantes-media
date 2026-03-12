@@ -21,12 +21,21 @@ const Header = () => {
 
   return (
     <header className={cn("sticky top-0 z-50 border-b border-slate-100 bg-white/95", open ? "" : "backdrop-blur")}>
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-ink-900">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand text-ink-900">
-            DM
-          </span>
-          Dantes Media Solution
+      <div className="mx-auto flex h-24 max-w-6xl items-center justify-between px-4">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3" aria-label="Dantes Media home">
+          <img
+            src="/dantes%20logo%202.1.png"
+            alt="Dantes Media Solution logo"
+            className="h-10 w-auto max-w-[140px] object-contain sm:h-12 sm:max-w-[180px]"
+          />
+          <div className="flex flex-col leading-tight">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-700 sm:text-xs">
+              Dantes Media Solution
+            </span>
+            <span className="mt-1 text-[9px] font-medium uppercase tracking-[0.22em] text-brand-dark sm:text-[10px]">
+              Elevating Visions
+            </span>
+          </div>
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium text-ink-700 md:flex" aria-label="Primary">
@@ -102,14 +111,20 @@ const Header = () => {
                 </button>
               </div>
 
-              <div className="mt-8 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-sm font-semibold text-ink-900">
-                    DM
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-ink-900">Dantes Media</p>
-                    <p className="text-xs uppercase tracking-[0.2em] text-ink-400">ICT partner</p>
+              <div className="mt-8 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                <div className="flex items-center justify-center gap-3">
+                  <img
+                    src="/dantes%20logo%202.1.png"
+                    alt="Dantes Media Solution logo"
+                    className="h-12 w-auto max-w-[140px] object-contain"
+                  />
+                  <div className="flex flex-col text-left leading-tight">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-ink-700">
+                      Dantes Media Solution
+                    </span>
+                    <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.22em] text-brand-dark">
+                      Elevating Visions
+                    </span>
                   </div>
                 </div>
               </div>

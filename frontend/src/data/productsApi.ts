@@ -1,5 +1,4 @@
-import type { ProductItem } from "./productsData";
-import { productsData } from "./productsData";
+import type { ProductItem } from "./catalogTypes";
 import { parseJsonSafely } from "../utils/http";
 
 type CustomProductsResponse = {
@@ -8,10 +7,28 @@ type CustomProductsResponse = {
 
 let cachedCatalog: ProductItem[] | null = null;
 let inflightCatalogRequest: Promise<ProductItem[]> | null = null;
+let cachedBaseProducts: ProductItem[] | null = null;
+let inflightBaseProductsRequest: Promise<ProductItem[]> | null = null;
 
 export const resetCatalogCache = () => {
   cachedCatalog = null;
   inflightCatalogRequest = null;
+};
+
+const loadBaseProducts = async (): Promise<ProductItem[]> => {
+  if (cachedBaseProducts) return cachedBaseProducts;
+  if (inflightBaseProductsRequest) return inflightBaseProductsRequest;
+
+  inflightBaseProductsRequest = import("./productsData")
+    .then((module) => {
+      cachedBaseProducts = module.productsData;
+      return cachedBaseProducts;
+    })
+    .finally(() => {
+      inflightBaseProductsRequest = null;
+    });
+
+  return inflightBaseProductsRequest;
 };
 
 const normalizeProduct = (value: unknown): ProductItem | null => {
@@ -64,25 +81,27 @@ export const loadCatalogProducts = async (): Promise<ProductItem[]> => {
   if (inflightCatalogRequest) return inflightCatalogRequest;
 
   inflightCatalogRequest = (async () => {
+    const baseProducts = await loadBaseProducts();
+
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api";
       const response = await fetch(`${apiBase}/products/custom`);
       const payload = await parseJsonSafely<CustomProductsResponse>(response);
 
       if (!response.ok) {
-        cachedCatalog = productsData;
-        return productsData;
+        cachedCatalog = baseProducts;
+        return baseProducts;
       }
 
       const customProducts = (payload?.products || [])
         .map((item) => normalizeProduct(item))
         .filter((item): item is ProductItem => item !== null);
 
-      cachedCatalog = dedupeById([...productsData, ...customProducts]);
+      cachedCatalog = dedupeById([...baseProducts, ...customProducts]);
       return cachedCatalog;
     } catch {
-      cachedCatalog = productsData;
-      return productsData;
+      cachedCatalog = baseProducts;
+      return baseProducts;
     } finally {
       inflightCatalogRequest = null;
     }

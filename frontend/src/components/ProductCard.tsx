@@ -1,5 +1,5 @@
-﻿import { Link } from "react-router-dom";
-import type { ProductItem } from "../data/productsData";
+import { Link } from "react-router-dom";
+import type { ProductItem } from "../data/catalogTypes";
 import { Button, ButtonLink } from "./Button";
 import Badge from "./Badge";
 import Card from "./Card";
@@ -17,6 +17,7 @@ const ProductCard = ({ product }: { product: ProductItem }) => {
           alt={product.name}
           className="h-48 w-full object-cover transition duration-300 group-hover:scale-105"
           loading="lazy"
+          decoding="async"
         />
       </div>
       <div className="flex flex-1 flex-col px-6 pb-6">

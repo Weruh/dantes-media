@@ -1,4 +1,4 @@
-import type { ProductCategory } from "./productsData";
+import type { ProductCategory } from "./catalogTypes";
 
 export type ProductSolution = {
   id: string;
@@ -7,6 +7,7 @@ export type ProductSolution = {
   highlights: string[];
   details: string;
   primaryCategory: ProductCategory;
+  shopCategory: ProductCategory;
 };
 
 export const productSolutionsData: ProductSolution[] = [
@@ -23,6 +24,7 @@ export const productSolutionsData: ProductSolution[] = [
     details:
       "Dantes Media Solutions delivers surveillance equipment for real-time monitoring, reliable recording, and tighter security control across your sites.",
     primaryCategory: "CCTV & Surveillance",
+    shopCategory: "Cctv Cameras And Accessories",
   },
   {
     id: "electric-fence-razor-wire",
@@ -37,6 +39,7 @@ export const productSolutionsData: ProductSolution[] = [
     details:
       "Built for durability and reliability, these solutions support residential compounds, schools, farms, warehouses, and high-security sites, with options for both solar and mains power.",
     primaryCategory: "Electric Fencing & Razor Wire",
+    shopCategory: "Electric Fences, Razor Wires and Accessories",
   },
   {
     id: "access-control-time-attendance",
@@ -51,6 +54,7 @@ export const productSolutionsData: ProductSolution[] = [
     details:
       "Our installations improve secure access, staff accountability, and workforce visibility while giving your team structured control over who enters sensitive areas.",
     primaryCategory: "Access Control & Attendance",
+    shopCategory: "Access Control & Time Attendance Systems",
   },
   {
     id: "burglar-alarm-systems",
@@ -65,6 +69,7 @@ export const productSolutionsData: ProductSolution[] = [
     details:
       "Dantes Media Solutions provides systems that improve early intrusion detection and accelerate response for stronger day and night protection.",
     primaryCategory: "Burglar Alarm Systems",
+    shopCategory: "Fire Alarm Sytems And Accessories",
   },
   {
     id: "fire-alarm-systems",
@@ -79,6 +84,7 @@ export const productSolutionsData: ProductSolution[] = [
     details:
       "Our fire safety solutions are built to improve early warning, response speed, and compliance readiness across critical environments.",
     primaryCategory: "Fire Alarm Systems",
+    shopCategory: "Fire Alarm Sytems And Accessories",
   },
   {
     id: "automatic-gates-accessories",
@@ -93,6 +99,7 @@ export const productSolutionsData: ProductSolution[] = [
     details:
       "We provide high-performance gate automation products with expert support, competitive pricing, and fast delivery options across Kenya.",
     primaryCategory: "Automatic Gates & Accessories",
+    shopCategory: "Automatic Gates & Accessories",
   },
   {
     id: "networking-products-accessories",
@@ -107,6 +114,7 @@ export const productSolutionsData: ProductSolution[] = [
     details:
       "Dantes Media Solutions provides infrastructure that supports stable connectivity, secure communication, and high-speed data transfer for critical business operations.",
     primaryCategory: "Networking",
+    shopCategory: "Networking products and accessories",
   },
   {
     id: "computer-accessories",
@@ -121,6 +129,7 @@ export const productSolutionsData: ProductSolution[] = [
     details:
       "Whether for home, office, school, or industrial usage, we deliver quality accessories that improve productivity, durability, and user experience.",
     primaryCategory: "Computer Accessories",
+    shopCategory: "Computer Accesorries",
   },
 ];
 

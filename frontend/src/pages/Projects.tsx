@@ -67,7 +67,13 @@ const Projects = () => {
             return (
             <Card key={project.id} className="flex h-full flex-col">
               <div className="overflow-hidden rounded-2xl bg-slate-100">
-                <img src={project.image} alt={project.title} className="h-56 w-full object-cover object-top" />
+                <img
+                  src={project.image}
+                  alt={project.title}
+                  className="h-56 w-full object-cover object-top"
+                  loading="lazy"
+                  decoding="async"
+                />
               </div>
               <div className="mt-4">
                 <div className="flex flex-wrap items-center gap-2">

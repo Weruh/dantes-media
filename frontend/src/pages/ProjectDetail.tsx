@@ -33,7 +33,12 @@ const ProjectDetail = () => {
         </div>
         <div className="mt-8 grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="h-72 overflow-hidden rounded-none bg-slate-100 md:h-80 lg:h-96">
-            <img src={project.image} alt={project.title} className="h-full w-full object-cover object-top" />
+            <img
+              src={project.image}
+              alt={project.title}
+              className="h-full w-full object-cover object-top"
+              decoding="async"
+            />
           </div>
           <div>
             <Badge variant="outline">{project.industry}</Badge>

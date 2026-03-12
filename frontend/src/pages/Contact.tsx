@@ -11,6 +11,7 @@ import { Button } from "../components/Button";
 import { Input, SelectField, Textarea } from "../components/Input";
 import Alert from "../components/Alert";
 import SalesCTA from "../components/SalesCTA";
+import { parseJsonSafely } from "../utils/http";
 
 const phoneRegex = /^[+\d\s()-]{7,}$/;
 
@@ -52,11 +53,33 @@ const serviceOptions = [
   "Training",
 ];
 
+const quoteFallbackError =
+  "Online quote submission is temporarily unavailable. Call +254(715) 578-015 or email info@dantesmediasolutions.co.ke.";
+
+const toQuoteErrorMessage = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return "Unable to submit quote right now.";
+  }
+
+  const message = error.message.trim();
+  if (!message || message === "Failed to fetch" || message.toLowerCase().includes("networkerror")) {
+    return quoteFallbackError;
+  }
+
+  return message;
+};
+
 const Contact = () => {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"quote" | "survey">("quote");
   const [quoteSuccess, setQuoteSuccess] = useState(false);
+  const [quoteSuccessMessage, setQuoteSuccessMessage] = useState(
+    "Thanks! We'll respond with next steps shortly."
+  );
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [surveySuccess, setSurveySuccess] = useState(false);
+  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
   const quoteForm = useForm<QuoteValues>({
     resolver: zodResolver(quoteSchema),
@@ -128,11 +151,35 @@ const Contact = () => {
     return () => subscription.unsubscribe();
   }, [surveyForm]);
 
-  const onQuoteSubmit = (values: QuoteValues) => {
-    setQuoteSuccess(true);
-    quoteForm.reset();
-    window.localStorage.removeItem("dantes-quote-draft");
-    void values;
+  const onQuoteSubmit = async (values: QuoteValues) => {
+    setQuoteSuccess(false);
+    setQuoteSuccessMessage("Thanks! We'll respond with next steps shortly.");
+    setQuoteError(null);
+    setQuoteSubmitting(true);
+
+    try {
+      const response = await fetch(`${apiBase}/contact/quote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+
+      const payload = await parseJsonSafely<{ message?: string }>(response);
+      if (!response.ok) {
+        throw new Error(payload?.message || "Unable to submit quote right now.");
+      }
+
+      setQuoteSuccess(true);
+      setQuoteSuccessMessage(payload?.message || "Thanks! We'll respond with next steps shortly.");
+      quoteForm.reset();
+      window.localStorage.removeItem("dantes-quote-draft");
+    } catch (error) {
+      setQuoteError(toQuoteErrorMessage(error));
+    } finally {
+      setQuoteSubmitting(false);
+    }
   };
 
   const onSurveySubmit = (values: SurveyValues) => {
@@ -162,9 +209,9 @@ const Contact = () => {
         <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {[
             { title: "Phone", value: "+254(715) 578-015" },
-            { title: "WhatsApp", value: "+254(722) 977-245" },
+            { title: "WhatsApp", value: "+254(715) 578-015" },
             { title: "Email", value: "info@dantesmediasolutions.co.ke" },
-            { title: "Location", value: "Mombasa, Likoni" },
+            { title: "Location", value: "Nairobi/Mombasa" },
           ].map((item) => (
             <Card key={item.title}>
               <p className="text-xs uppercase tracking-[0.2em] text-brand-dark">{item.title}</p>
@@ -217,15 +264,20 @@ const Contact = () => {
                 </SelectField>
                 <SelectField label="Budget range" {...quoteForm.register("budgetRange")}>
                   <option value="">Select range</option>
-                  <option value="Below KES 2,000">Below KES 2,000</option>
-                  <option value="KES 2,000 - KES 5,000">KES 2,000 - KES 5,000</option>
-                  <option value="KES 5,000 - KES 15,000">KES 5,000 - KES 15,000</option>
-                  <option value="KES 15,000+">KES 15,000+</option>
+                  <option value="KES 2,000 - KES 100,000">KES 2,000 - KES 100,000</option>
+                  <option value="KES 100,000+">KES 100,000+</option>
                 </SelectField>
               </div>
               <Textarea label="Project details" error={quoteForm.formState.errors.message?.message} {...quoteForm.register("message")} />
-              <Button type="submit">Submit Quote Request</Button>
-              {quoteSuccess && <Alert tone="success">Thanks! We'll respond with next steps shortly.</Alert>}
+              <Button
+                type="submit"
+                disabled={quoteSubmitting}
+                className={quoteSubmitting ? "cursor-not-allowed opacity-70" : undefined}
+              >
+                {quoteSubmitting ? "Submitting..." : "Submit Quote Request"}
+              </Button>
+              {quoteError && <Alert tone="error">{quoteError}</Alert>}
+              {quoteSuccess && <Alert tone="success">{quoteSuccessMessage}</Alert>}
             </form>
           )}
 
@@ -270,7 +322,7 @@ const Contact = () => {
       </Section>
 
       <a
-        href="https://wa.me/10000000000"
+        href="https://wa.me/254715578015"
         className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full bg-ink-900 px-4 py-3 text-xs font-semibold text-white shadow-lg"
       >
         Need help?
@@ -280,6 +332,3 @@ const Contact = () => {
 };
 
 export default Contact;
-
-
-
