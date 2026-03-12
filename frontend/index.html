@@ -10,6 +10,21 @@
     />
     <meta name="theme-color" content="#0f172a" />
     <title>Dantes Media Solution</title>
+    <script>
+      (() => {
+        const params = new URLSearchParams(window.location.search);
+        const redirectedPath = params.get("ghp_path");
+        if (!redirectedPath) return;
+
+        const redirectedQuery = params.get("ghp_query");
+        const nextUrl =
+          `/${redirectedPath}` +
+          (redirectedQuery ? `?${redirectedQuery}` : "") +
+          window.location.hash;
+
+        window.history.replaceState(null, "", nextUrl);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

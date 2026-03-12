@@ -1,4 +1,5 @@
 import type { ProductItem } from "./catalogTypes";
+import { createApiUrl } from "../utils/api";
 import { parseJsonSafely } from "../utils/http";
 
 type CustomProductsResponse = {
@@ -84,8 +85,7 @@ export const loadCatalogProducts = async (): Promise<ProductItem[]> => {
     const baseProducts = await loadBaseProducts();
 
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api";
-      const response = await fetch(`${apiBase}/products/custom`);
+      const response = await fetch(createApiUrl("/products/custom"));
       const payload = await parseJsonSafely<CustomProductsResponse>(response);
 
       if (!response.ok) {

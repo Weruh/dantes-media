@@ -3,12 +3,10 @@ services:
     name: dantes-media
     env: node
     rootDir: .
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true
-    domains:
-      - dantesmediasolution.com
     envVars:
       - key: NODE_ENV
         value: production

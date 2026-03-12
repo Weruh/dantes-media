@@ -6,6 +6,7 @@ import Section from "../components/Section";
 import Alert from "../components/Alert";
 import { ButtonLink } from "../components/Button";
 import { useCart } from "../app/cart/CartContext";
+import { createApiUrl } from "../utils/api";
 import { parseJsonSafely } from "../utils/http";
 
 type VerifyResponse = {
@@ -39,7 +40,7 @@ const CheckoutVerify = () => {
     const verify = async () => {
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL ?? "/api"}/paystack/verify/${encodeURIComponent(reference)}`
+          createApiUrl(`/paystack/verify/${encodeURIComponent(reference)}`)
         );
         const payload = await parseJsonSafely<Partial<VerifyResponse> & { message?: string }>(
           response

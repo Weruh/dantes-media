@@ -5,6 +5,7 @@ import Card from "../components/Card";
 import Alert from "../components/Alert";
 import { Input, SelectField, Textarea } from "../components/Input";
 import { Button } from "../components/Button";
+import { createApiUrl, getApiBaseUrl } from "../utils/api";
 import { parseJsonSafely } from "../utils/http";
 import { defaultProductCategories } from "../data/catalogTypes";
 import { resetCatalogCache } from "../data/productsApi";
@@ -131,7 +132,7 @@ const AdminOrders = () => {
   const [productSuccess, setProductSuccess] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  const apiBase = useMemo(() => import.meta.env.VITE_API_BASE_URL ?? "/api", []);
+  const apiBase = useMemo(() => getApiBaseUrl(), []);
 
   const requireToken = (token = adminToken) => {
     if (!token.trim()) {
@@ -312,7 +313,7 @@ const AdminOrders = () => {
   const handleLogout = async () => {
     if (adminToken.trim()) {
       try {
-        await fetch(`${apiBase}/admin/logout`, {
+        await fetch(createApiUrl("/admin/logout"), {
           method: "POST",
           headers: {
             Authorization: `Bearer ${adminToken.trim()}`,

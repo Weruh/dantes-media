@@ -11,6 +11,7 @@ import { Button } from "../components/Button";
 import { Input, SelectField, Textarea } from "../components/Input";
 import Alert from "../components/Alert";
 import SalesCTA from "../components/SalesCTA";
+import { createApiUrl } from "../utils/api";
 import { parseJsonSafely } from "../utils/http";
 
 const phoneRegex = /^[+\d\s()-]{7,}$/;
@@ -79,7 +80,6 @@ const Contact = () => {
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [surveySuccess, setSurveySuccess] = useState(false);
-  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
   const quoteForm = useForm<QuoteValues>({
     resolver: zodResolver(quoteSchema),
@@ -158,7 +158,7 @@ const Contact = () => {
     setQuoteSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBase}/contact/quote`, {
+      const response = await fetch(createApiUrl("/contact/quote"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

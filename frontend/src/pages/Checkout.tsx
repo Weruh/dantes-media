@@ -11,6 +11,7 @@ import { Button } from "../components/Button";
 import { Input, SelectField, Textarea } from "../components/Input";
 import Alert from "../components/Alert";
 import { useCart } from "../app/cart/CartContext";
+import { createApiUrl } from "../utils/api";
 import { parseJsonSafely } from "../utils/http";
 
 const checkoutSchema = z.object({
@@ -150,7 +151,7 @@ const Checkout = () => {
     setPaymentError(null);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? "/api"}/paystack/initialize`, {
+      const response = await fetch(createApiUrl("/paystack/initialize"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

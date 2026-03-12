@@ -6,9 +6,10 @@ The project is arranged as:
 - `frontend/` for the React app
 - `server/` for checkout, contact, admin, and notification endpoints
 
-For production, the backend now serves the built frontend and the API from the same service. That makes deployment simpler and fits a single custom domain:
+For production, the app is split across two hosts:
 - Site: `https://dantesmediasolution.com`
-- API: `https://dantesmediasolution.com/api/*`
+- Frontend: GitHub Pages
+- API: Render at either `https://<your-service>.onrender.com/api/*` or `https://api.dantesmediasolution.com/api/*`
 
 ## Features
 
@@ -134,9 +135,9 @@ git remote add origin <your-github-repo-url>
 git push -u origin main
 ```
 
-## Deploy To Render
+## Deploy Backend To Render
 
-This repo includes `render.yaml` for a single web service deployment.
+This repo includes `render.yaml` for the Express API deployment.
 
 1. Push the repo to GitHub.
 2. In Render, create a new Blueprint from the GitHub repository.
@@ -159,19 +160,51 @@ After deployment, verify:
 - `https://<your-render-service>/api/health`
 - `https://<your-render-service>/`
 
+## Deploy Frontend To GitHub Pages
+
+The repo now includes `.github/workflows/pages.yml` for GitHub Pages deployment.
+
+1. In GitHub, go to Settings -> Pages.
+2. Set Source to `GitHub Actions`.
+3. Add a repository variable named `VITE_API_BASE_URL`.
+4. Set that variable to your Render API origin, for example:
+   - `https://<your-service>.onrender.com/api`
+   - or `https://api.dantesmediasolution.com/api`
+5. Push to `main` or `master` and let the Pages workflow deploy `frontend/dist`.
+
+The frontend build includes:
+
+- `frontend/public/CNAME` for `dantesmediasolution.com`
+- `frontend/public/.nojekyll`
+- `frontend/public/404.html` to preserve SPA routes on direct visits
+
 ## Connect Namecheap Domain
 
-Add `dantesmediasolution.com` as the custom domain in Render, then update Namecheap DNS:
+Use separate DNS targets for frontend and backend.
 
-1. In Namecheap Advanced DNS, set an `A` record for `@` to `216.24.57.1`.
-2. Set a `CNAME` record for `www` to your Render hostname, for example `your-service.onrender.com`.
-3. Remove conflicting `AAAA` or old parking records if present.
-4. Wait for DNS propagation and complete domain verification in Render.
+Frontend on GitHub Pages:
 
-Once the domain is verified, Render provisions HTTPS automatically.
+1. Point apex `@` only to the four GitHub Pages IPs:
+   - `185.199.108.153`
+   - `185.199.109.153`
+   - `185.199.110.153`
+   - `185.199.111.153`
+2. Point `www` to `weruh.github.io`.
+
+Backend on Render:
+
+1. Use either the default `*.onrender.com` hostname in `VITE_API_BASE_URL`.
+2. Or create a separate subdomain such as `api.dantesmediasolution.com`.
+3. If you use `api`, point that subdomain to your Render service as instructed by Render.
+
+Important:
+
+- Do not point `dantesmediasolution.com` to Render if GitHub Pages is serving the frontend.
+- Do not mix GitHub Pages A records with unrelated A records on the apex domain.
+- Keep `FRONTEND_URL`, `CORS_ORIGINS`, and `PAYSTACK_CALLBACK_URL` in Render aligned with the GitHub Pages frontend domain.
 
 ## Production Notes
 
 - `frontend/public/sitemap.xml` and `frontend/public/robots.txt` now point to `https://dantesmediasolution.com`.
-- The Express server serves `frontend/dist` in production, so frontend routes like `/projects/...` and `/checkout/verify` work without separate static hosting.
+- GitHub Pages serves the frontend, while Render serves the API.
 - Runtime data written by the API is ignored under `server/data/`.
