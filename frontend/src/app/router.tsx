@@ -16,8 +16,6 @@ const Projects = lazy(() => import("../pages/Projects"));
 const ProjectDetail = lazy(() => import("../pages/ProjectDetail"));
 const About = lazy(() => import("../pages/About"));
 const Contact = lazy(() => import("../pages/Contact"));
-const SelfCare = lazy(() => import("../pages/SelfCare"));
-const PostDetail = lazy(() => import("../pages/PostDetail"));
 const PillarDetail = lazy(() => import("../pages/PillarDetail"));
 
 const PageLoader = ({ children }: { children: ReactNode }) => (
@@ -45,8 +43,6 @@ export const router = createBrowserRouter([
       { path: "projects/:slug", element: <PageLoader><ProjectDetail /></PageLoader> },
       { path: "about", element: <PageLoader><About /></PageLoader> },
       { path: "pillars/:slug", element: <PageLoader><PillarDetail /></PageLoader> },
-      { path: "self-care", element: <PageLoader><SelfCare /></PageLoader> },
-      { path: "self-care/:slug", element: <PageLoader><PostDetail /></PageLoader> },
       { path: "contact", element: <PageLoader><Contact /></PageLoader> },
     ],
   },

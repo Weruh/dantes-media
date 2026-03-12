@@ -4,50 +4,14 @@ import { Link, useNavigate } from "react-router-dom";
 import Section from "../components/Section";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
-import IconBadge from "../components/IconBadge";
 import SectionHeading from "../components/SectionHeading";
 import SalesCTA from "../components/SalesCTA";
 import { Button, ButtonLink } from "../components/Button";
 import { projectsData } from "../data/projectsData";
-import { postsData, type PostCategory } from "../data/postsData";
 import { productSolutionImageMap, productSolutionsData } from "../data/productSolutionsData";
 import { testimonialsData } from "../data/testimonialsData";
 import { useCart } from "../app/cart/CartContext";
 import { useCatalogProducts } from "../hooks/useCatalogProducts";
-import { HeartPulse, ShieldCheck, Timer, Users } from "lucide-react";
-
-const categoryIconMap: Record<PostCategory, typeof Timer> = {
-  Productivity: Timer,
-  "Burnout Prevention": HeartPulse,
-  "Digital Safety Habits": ShieldCheck,
-  "Team Systems": Users,
-};
-
-const categoryStyleMap: Record<
-  PostCategory,
-  { card: string; iconBadge: string; badge: string }
-> = {
-  Productivity: {
-    card: "border-t-sky-300/70 bg-gradient-to-br from-sky-50 via-white to-sky-100/70",
-    iconBadge: "bg-sky-100 text-sky-600",
-    badge: "bg-sky-100/70 text-sky-700",
-  },
-  "Team Systems": {
-    card: "border-t-violet-300/70 bg-gradient-to-br from-violet-50 via-white to-violet-100/70",
-    iconBadge: "bg-violet-100 text-violet-700",
-    badge: "bg-violet-100/70 text-violet-700",
-  },
-  "Burnout Prevention": {
-    card: "border-t-amber-300/70 bg-gradient-to-br from-amber-50 via-white to-amber-100/70",
-    iconBadge: "bg-amber-100 text-amber-700",
-    badge: "bg-amber-100/70 text-amber-800",
-  },
-  "Digital Safety Habits": {
-    card: "border-t-emerald-300/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70",
-    iconBadge: "bg-emerald-100 text-emerald-700",
-    badge: "bg-emerald-100/70 text-emerald-700",
-  },
-};
 
 const HOME_SERVICE_PRIORITY = [
   "cctv-cameras-accessories",
@@ -277,31 +241,6 @@ const Home = () => {
                     View details &rarr;
                   </Link>
                 </div>
-              </Card>
-            );
-          })}
-        </div>
-      </Section>
-
-      <Section>
-        <SectionHeading title="Self-care resources" subtitle="Quick wins to keep teams productive between support visits." />
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {postsData.slice(0, 3).map((post) => {
-            const Icon = categoryIconMap[post.category];
-            const styles = categoryStyleMap[post.category];
-            return (
-              <Card key={post.slug} className={`flex h-full flex-col border-t-2 ${styles.card}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <IconBadge icon={Icon} className={`h-11 w-11 rounded-xl ${styles.iconBadge}`} />
-                  <Badge className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${styles.badge}`}>
-                    {post.category}
-                  </Badge>
-                </div>
-                <h3 className="mt-4 text-lg font-semibold text-ink-900">{post.title}</h3>
-                <p className="mt-2 text-sm text-ink-500">{post.excerpt}</p>
-                <Link to={`/self-care/${post.slug}`} className="mt-auto text-xs font-semibold text-brand-dark">
-                  Read article &rarr;
-                </Link>
               </Card>
             );
           })}
