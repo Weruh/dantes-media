@@ -50,7 +50,22 @@ const SMTP_SECURE = process.env.SMTP_SECURE === "true";
 const SMTP_USER = (process.env.SMTP_USER || "").trim();
 const SMTP_PASS = process.env.SMTP_PASS || "";
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || "no-reply@dantesmedia.local";
-const PLUNK_API_KEY = (process.env.PLUNK_API_KEY || "").trim();
+const normalizeApiKey = (value) => {
+  if (typeof value !== "string") return "";
+
+  const trimmed = value.trim().replace(/^['"]|['"]$/g, "");
+  return trimmed.replace(/^Bearer\s+/i, "").trim();
+};
+
+const maskSecret = (value) => {
+  if (typeof value !== "string" || value.trim().length === 0) return "missing";
+
+  const trimmed = value.trim();
+  if (trimmed.length <= 8) return `${trimmed.slice(0, 2)}...${trimmed.slice(-2)}`;
+  return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)} (len:${trimmed.length})`;
+};
+
+const PLUNK_API_KEY = normalizeApiKey(process.env.PLUNK_API_KEY || "");
 const PLUNK_FROM = (process.env.PLUNK_FROM || "").trim();
 const PLUNK_REPLY_TO = (process.env.PLUNK_REPLY_TO || "").trim();
 const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
@@ -937,7 +952,9 @@ const sendPlainTextEmail = async ({ to, subject, text, html = "", replyTo = "" }
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`Plunk email API failed (${response.status}): ${body}`);
+      throw new Error(
+        `Plunk email API failed (${response.status}): ${body} [key:${maskSecret(PLUNK_API_KEY)}]`
+      );
     }
     return true;
   }
