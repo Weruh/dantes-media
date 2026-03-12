@@ -356,15 +356,51 @@ const normalizeItems = (items) => {
     if (!id || !Number.isInteger(quantity) || quantity <= 0) {
       continue;
     }
-    normalized.push({ id, quantity });
+    const unitPrice = Number(item?.unitPrice ?? item?.price);
+    const name =
+      typeof item?.name === "string" && item.name.trim().length > 0 ? item.name.trim() : "";
+    const image =
+      typeof item?.image === "string" && item.image.trim().length > 0 ? item.image.trim() : "";
+    const category =
+      typeof item?.category === "string" && item.category.trim().length > 0
+        ? item.category.trim()
+        : "";
+
+    normalized.push({
+      id,
+      quantity,
+      ...(name ? { name } : {}),
+      ...(Number.isFinite(unitPrice) && unitPrice > 0 ? { unitPrice } : {}),
+      ...(image ? { image } : {}),
+      ...(category ? { category } : {}),
+    });
   }
   return normalized;
 };
 
+const buildOrderItemSnapshots = (items) =>
+  normalizeItems(items).map((item) => {
+    const unitPrice = getOrderItemUnitPrice(item);
+
+    return {
+      id: item.id,
+      quantity: item.quantity,
+      name: item.name || getProductName(item.id),
+      unitPrice: typeof unitPrice === "number" ? unitPrice : null,
+      image: item.image || "",
+      category: item.category || "",
+    };
+  });
+
+const getOrderItemUnitPrice = (item) =>
+  typeof item?.unitPrice === "number" && Number.isFinite(item.unitPrice) && item.unitPrice > 0
+    ? item.unitPrice
+    : getProductPrice(item?.id);
+
 const computeTotals = (items) => {
   let subtotal = 0;
   for (const item of items) {
-    const price = getProductPrice(item.id);
+    const price = getOrderItemUnitPrice(item);
     if (typeof price !== "number") {
       throw new Error(`Unknown product id: ${item.id}`);
     }
@@ -394,12 +430,15 @@ const normalizeTotals = (items, amountMinor) => {
 
 const buildLineItems = (items) =>
   items.map((item) => {
-    const unitPrice = getProductPrice(item.id);
+    const unitPrice = getOrderItemUnitPrice(item);
     const quantity = item.quantity;
     const lineTotal = typeof unitPrice === "number" ? unitPrice * quantity : null;
     return {
       id: item.id,
-      name: getProductName(item.id),
+      name:
+        typeof item.name === "string" && item.name.trim().length > 0
+          ? item.name.trim()
+          : getProductName(item.id),
       quantity,
       unitPrice: unitPrice ?? null,
       lineTotal,
@@ -627,7 +666,7 @@ const createOrderMessage = (order) => {
     order.delivery.deliveryNotes ? `Delivery notes: ${order.delivery.deliveryNotes}` : "",
     "",
     "Products purchased",
-    itemLines,
+    itemLines || "- No product details captured",
     "",
     "Order totals",
     `Subtotal: ${formatAmount(order.totals.subtotal)}`,
@@ -651,6 +690,15 @@ const createOrderEmailHtml = (order) => {
         </tr>`
     )
     .join("");
+
+  const lineItemsHtml =
+    lineItems ||
+    `
+        <tr>
+          <td colspan="3" style="padding:8px;border:1px solid #dbe4f0;text-align:center;color:#64748b;">
+            No product details captured
+          </td>
+        </tr>`;
 
   return `
     <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;">
@@ -706,7 +754,7 @@ const createOrderEmailHtml = (order) => {
                 <th style="padding:8px;border:1px solid #dbe4f0;text-align:right;">Line total</th>
               </tr>
             </thead>
-            <tbody>${lineItems}</tbody>
+            <tbody>${lineItemsHtml}</tbody>
           </table>
         </div>
 
@@ -745,7 +793,7 @@ const createCustomerOrderMessage = (order) => {
     `Paid at: ${formatOrderDateTime(order.paidAt || order.createdAt)}`,
     "",
     "Products purchased",
-    itemLines,
+    itemLines || "- No product details captured",
     "",
     "Delivery details",
     `Address: ${order.customer.address}, ${order.customer.city}, ${order.customer.county}`,
@@ -780,6 +828,15 @@ const createCustomerOrderEmailHtml = (order) => {
     )
     .join("");
 
+  const lineItemsHtml =
+    lineItems ||
+    `
+        <tr>
+          <td colspan="3" style="padding:8px;border:1px solid #dbe4f0;text-align:center;color:#64748b;">
+            No product details captured
+          </td>
+        </tr>`;
+
   return `
     <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;">
       <div style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;">
@@ -806,7 +863,7 @@ const createCustomerOrderEmailHtml = (order) => {
                 <th style="padding:8px;border:1px solid #dbe4f0;text-align:right;">Line total</th>
               </tr>
             </thead>
-            <tbody>${lineItems}</tbody>
+            <tbody>${lineItemsHtml}</tbody>
           </table>
         </div>
 
@@ -1068,7 +1125,10 @@ const recoverOrderFromTransaction = (transaction, source) => {
       ? transaction.metadata
       : {};
 
-  let items = normalizeItems(metadata.items);
+  let items = normalizeItems(metadata.itemsSnapshot);
+  if (items.length === 0) {
+    items = normalizeItems(metadata.items);
+  }
   if (items.length === 0) {
     items = normalizeItems(metadata.lineItems);
   }
@@ -1091,7 +1151,7 @@ const recoverOrderFromTransaction = (transaction, source) => {
     customer,
     delivery,
     paymentPhone: metadata.paymentPhone || customer.phone,
-    items,
+    items: buildOrderItemSnapshots(items),
     reference: transaction.reference,
     amountMinor,
     currency: transaction.currency || PAYSTACK_CURRENCY,
@@ -1414,7 +1474,7 @@ app.get("/api/admin/sold-goods", requireAdminAuth, (_req, res) => {
         revenue: 0,
         hasUnknownPricing: false,
       };
-      const unitPrice = getProductPrice(item.id);
+      const unitPrice = getOrderItemUnitPrice(item);
 
       existing.quantitySold += item.quantity;
       if (typeof unitPrice === "number") {
@@ -1442,7 +1502,8 @@ app.get("/api/admin/sold-goods", requireAdminAuth, (_req, res) => {
 app.post("/api/paystack/initialize", async (req, res) => {
   try {
     const parsed = assertCheckoutPayload(req.body);
-    const totals = computeTotals(parsed.items);
+    const orderItems = buildOrderItemSnapshots(parsed.items);
+    const totals = computeTotals(orderItems);
     const reference = createReference();
     const amountMinor = Math.round(totals.total * 100);
 
@@ -1458,8 +1519,9 @@ app.post("/api/paystack/initialize", async (req, res) => {
           customer: parsed.customer,
           delivery: parsed.delivery,
           paymentPhone: parsed.paymentPhone || parsed.customer.phone,
-          items: parsed.items,
-          lineItems: buildLineItems(parsed.items),
+          items: orderItems,
+          itemsSnapshot: orderItems,
+          lineItems: buildLineItems(orderItems),
           totals,
         },
       }),
@@ -1467,6 +1529,7 @@ app.post("/api/paystack/initialize", async (req, res) => {
 
     orders.set(reference, {
       ...parsed,
+      items: orderItems,
       reference,
       amountMinor,
       currency: PAYSTACK_CURRENCY,
