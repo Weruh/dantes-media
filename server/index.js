@@ -50,9 +50,9 @@ const SMTP_SECURE = process.env.SMTP_SECURE === "true";
 const SMTP_USER = (process.env.SMTP_USER || "").trim();
 const SMTP_PASS = process.env.SMTP_PASS || "";
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || "no-reply@dantesmedia.local";
-const BREVO_API_KEY = (process.env.BREVO_API_KEY || "").trim();
-const BREVO_FROM = (process.env.BREVO_FROM || "").trim();
-const BREVO_REPLY_TO = (process.env.BREVO_REPLY_TO || "").trim();
+const PLUNK_API_KEY = (process.env.PLUNK_API_KEY || "").trim();
+const PLUNK_FROM = (process.env.PLUNK_FROM || "").trim();
+const PLUNK_REPLY_TO = (process.env.PLUNK_REPLY_TO || "").trim();
 const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
 const RESEND_FROM = (
   process.env.RESEND_FROM || "Dantes Media <onboarding@resend.dev>"
@@ -91,9 +91,9 @@ const parseMailbox = (value, fallbackName = "") => {
   };
 };
 
-const brevoSender = parseMailbox(BREVO_FROM, "Dantes Media");
+const plunkSender = parseMailbox(PLUNK_FROM, "Dantes Media");
 const emailConfigured = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
-const brevoConfigured = Boolean(BREVO_API_KEY && brevoSender?.email);
+const plunkConfigured = Boolean(PLUNK_API_KEY && plunkSender?.email);
 const resendConfigured = Boolean(RESEND_API_KEY && RESEND_FROM);
 const mailTransporter = emailConfigured
   ? nodemailer.createTransport({
@@ -106,7 +106,7 @@ const mailTransporter = emailConfigured
       },
     })
   : null;
-const emailChannelConfigured = Boolean(brevoConfigured || resendConfigured || mailTransporter);
+const emailChannelConfigured = Boolean(plunkConfigured || resendConfigured || mailTransporter);
 const whatsappCloudConfigured = Boolean(
   WHATSAPP_ACCESS_TOKEN && WHATSAPP_PHONE_NUMBER_ID && WHATSAPP_RECIPIENT_PHONE
 );
@@ -912,33 +912,32 @@ const createCustomerOrderEmailHtml = (order) => {
 const sendPlainTextEmail = async ({ to, subject, text, html = "", replyTo = "" }) => {
   const normalizedReplyTo = isNonEmptyString(replyTo)
     ? replyTo.trim()
-    : isNonEmptyString(BREVO_REPLY_TO)
-      ? BREVO_REPLY_TO
+    : isNonEmptyString(PLUNK_REPLY_TO)
+      ? PLUNK_REPLY_TO
     : isNonEmptyString(RESEND_REPLY_TO)
       ? RESEND_REPLY_TO
       : "";
 
-  if (brevoConfigured && brevoSender) {
-    const brevoReplyTo = parseMailbox(normalizedReplyTo);
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+  if (plunkConfigured && plunkSender) {
+    const response = await fetch("https://api.useplunk.com/v1/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "api-key": BREVO_API_KEY,
+        Authorization: `Bearer ${PLUNK_API_KEY}`,
       },
       body: JSON.stringify({
-        sender: brevoSender,
-        to: [{ email: to }],
+        to,
         subject,
-        textContent: text,
-        ...(html ? { htmlContent: html } : {}),
-        ...(brevoReplyTo ? { replyTo: brevoReplyTo } : {}),
+        body: html || text,
+        from: plunkSender.email,
+        ...(plunkSender.name ? { name: plunkSender.name } : {}),
+        ...(normalizedReplyTo ? { reply: normalizedReplyTo } : {}),
       }),
     });
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`Brevo email API failed (${response.status}): ${body}`);
+      throw new Error(`Plunk email API failed (${response.status}): ${body}`);
     }
     return true;
   }
@@ -1263,7 +1262,7 @@ app.get("/api/health", (_req, res) => {
     notificationChannels: {
       email: Boolean(SELLER_NOTIFY_EMAIL && emailChannelConfigured),
       contactEmail: Boolean(CONTACT_NOTIFY_EMAIL && emailChannelConfigured),
-      emailViaBrevoApi: Boolean(brevoConfigured),
+      emailViaPlunkApi: Boolean(plunkConfigured),
       emailViaResendApi: Boolean(resendConfigured),
       emailViaSmtp: Boolean(mailTransporter),
       whatsapp: Boolean(whatsappCloudConfigured || WHATSAPP_WEBHOOK_URL),

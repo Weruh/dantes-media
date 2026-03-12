@@ -28,11 +28,11 @@ services:
         sync: false
       - key: CONTACT_NOTIFY_EMAIL
         sync: false
-      - key: BREVO_API_KEY
+      - key: PLUNK_API_KEY
         sync: false
-      - key: BREVO_FROM
+      - key: PLUNK_FROM
         sync: false
-      - key: BREVO_REPLY_TO
+      - key: PLUNK_REPLY_TO
         sync: false
       - key: RESEND_API_KEY
         sync: false

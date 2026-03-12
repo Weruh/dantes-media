@@ -61,9 +61,9 @@ Notification-related variables:
 
 - `SELLER_NOTIFY_EMAIL`
 - `CONTACT_NOTIFY_EMAIL`
-- `BREVO_API_KEY`
-- `BREVO_FROM`
-- `BREVO_REPLY_TO`
+- `PLUNK_API_KEY`
+- `PLUNK_FROM`
+- `PLUNK_REPLY_TO`
 - `RESEND_API_KEY`
 - `RESEND_FROM`
 - `RESEND_REPLY_TO`
@@ -99,22 +99,22 @@ The same paid-order event also sends the customer an order confirmation email wi
 - delivery details
 - order totals
 
-To deliver those emails with Brevo into the owner's Gmail inbox, set these values in your deployed environment:
+To deliver those emails with Plunk into the owner's Gmail inbox, set these values in your deployed environment:
 
 ```bash
 SELLER_NOTIFY_EMAIL=owner@gmail.com
-BREVO_API_KEY=xkeysib-xxxxxxxxxxxxxxxxxxxxx
-BREVO_FROM=Dantes Media <orders@dantesmediasolution.com>
-BREVO_REPLY_TO=
+PLUNK_API_KEY=sk_xxxxxxxxxxxxxxxxxxxxx
+PLUNK_FROM=Dantes Media <orders@dantesmediasolution.com>
+PLUNK_REPLY_TO=
 ```
 
 Important:
 
 - `SELLER_NOTIFY_EMAIL` should be the Gmail address that should receive paid-order notifications.
-- `BREVO_FROM` must use a sender address you have verified inside Brevo.
+- `PLUNK_FROM` must use a sender address you have verified inside Plunk.
 - When a paid order is confirmed, the server emails the owner automatically from `markOrderPaid -> notifySeller -> notifyViaEmail`.
-- The customer email is used as the `Reply-To`, so the owner can reply directly from Gmail unless you set `BREVO_REPLY_TO`.
-- Brevo is checked first. Resend and SMTP remain available as fallbacks if you prefer them.
+- The customer email is used as the `Reply-To`, so the owner can reply directly from Gmail unless you set `PLUNK_REPLY_TO`.
+- Plunk is checked first. Resend and SMTP remain available as fallbacks if you prefer them.
 
 ## GitHub Readiness
 
