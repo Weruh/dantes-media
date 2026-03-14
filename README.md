@@ -28,7 +28,7 @@ Install dependencies:
 npm install
 ```
 
-Create a local env file from `.env.example`.
+Create a local `.env` file with the variables listed below.
 
 Recommended local workflow:
 
@@ -79,7 +79,7 @@ Notification-related variables:
 - `WHATSAPP_RECIPIENT_PHONE`
 - `WHATSAPP_API_VERSION`
 
-Use `.env.example` as the template for local development.
+Use the variable list above as the template for local development.
 
 ## Owner Order Notifications
 
