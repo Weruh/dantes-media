@@ -13,6 +13,7 @@ dist-ssr
 *.local
 .env
 .env.*
+README.md
 server/data/
 
 # Editor directories and files
