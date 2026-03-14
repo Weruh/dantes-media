@@ -61,9 +61,9 @@ Notification-related variables:
 
 - `SELLER_NOTIFY_EMAIL`
 - `CONTACT_NOTIFY_EMAIL`
-- `PLUNK_API_KEY`
-- `PLUNK_FROM`
-- `PLUNK_REPLY_TO`
+- `MAILERSEND_API_KEY`
+- `MAILERSEND_FROM`
+- `MAILERSEND_REPLY_TO`
 - `RESEND_API_KEY`
 - `RESEND_FROM`
 - `RESEND_REPLY_TO`
@@ -99,22 +99,22 @@ The same paid-order event also sends the customer an order confirmation email wi
 - delivery details
 - order totals
 
-To deliver those emails with Plunk into the owner's Gmail inbox, set these values in your deployed environment:
+To deliver those emails with MailerSend into the owner's Gmail inbox, set these values in your deployed environment:
 
 ```bash
 SELLER_NOTIFY_EMAIL=owner@gmail.com
-PLUNK_API_KEY=sk_xxxxxxxxxxxxxxxxxxxxx
-PLUNK_FROM=Dantes Media <orders@dantesmediasolution.com>
-PLUNK_REPLY_TO=
+MAILERSEND_API_KEY=mlsn.xxxxxxxxxxxxxxxxxxxxx
+MAILERSEND_FROM=Dantes Media <orders@dantesmediasolution.com>
+MAILERSEND_REPLY_TO=
 ```
 
 Important:
 
 - `SELLER_NOTIFY_EMAIL` should be the Gmail address that should receive paid-order notifications.
-- `PLUNK_FROM` must use a sender address you have verified inside Plunk.
+- `MAILERSEND_FROM` must use a sender address you have verified inside MailerSend.
 - When a paid order is confirmed, the server emails the owner automatically from `markOrderPaid -> notifySeller -> notifyViaEmail`.
-- The customer email is used as the `Reply-To`, so the owner can reply directly from Gmail unless you set `PLUNK_REPLY_TO`.
-- Plunk is checked first. Resend and SMTP remain available as fallbacks if you prefer them.
+- The customer email is used as the `Reply-To`, so the owner can reply directly from Gmail unless you set `MAILERSEND_REPLY_TO`.
+- MailerSend is checked first. Resend and SMTP remain available as fallbacks if you prefer them.
 
 ## GitHub Readiness
 

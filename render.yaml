@@ -28,11 +28,11 @@ services:
         sync: false
       - key: CONTACT_NOTIFY_EMAIL
         sync: false
-      - key: PLUNK_API_KEY
+      - key: MAILERSEND_API_KEY
         sync: false
-      - key: PLUNK_FROM
+      - key: MAILERSEND_FROM
         sync: false
-      - key: PLUNK_REPLY_TO
+      - key: MAILERSEND_REPLY_TO
         sync: false
       - key: RESEND_API_KEY
         sync: false

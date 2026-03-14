@@ -65,9 +65,9 @@ const maskSecret = (value) => {
   return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)} (len:${trimmed.length})`;
 };
 
-const PLUNK_API_KEY = normalizeApiKey(process.env.PLUNK_API_KEY || "");
-const PLUNK_FROM = (process.env.PLUNK_FROM || "").trim();
-const PLUNK_REPLY_TO = (process.env.PLUNK_REPLY_TO || "").trim();
+const MAILERSEND_API_KEY = normalizeApiKey(process.env.MAILERSEND_API_KEY || "");
+const MAILERSEND_FROM = (process.env.MAILERSEND_FROM || "").trim();
+const MAILERSEND_REPLY_TO = (process.env.MAILERSEND_REPLY_TO || "").trim();
 const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
 const RESEND_FROM = (
   process.env.RESEND_FROM || "Dantes Media <onboarding@resend.dev>"
@@ -106,9 +106,9 @@ const parseMailbox = (value, fallbackName = "") => {
   };
 };
 
-const plunkSender = parseMailbox(PLUNK_FROM, "Dantes Media");
+const mailerSendSender = parseMailbox(MAILERSEND_FROM, "Dantes Media");
 const emailConfigured = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
-const plunkConfigured = Boolean(PLUNK_API_KEY && plunkSender?.email);
+const mailerSendConfigured = Boolean(MAILERSEND_API_KEY && mailerSendSender?.email);
 const resendConfigured = Boolean(RESEND_API_KEY && RESEND_FROM);
 const mailTransporter = emailConfigured
   ? nodemailer.createTransport({
@@ -121,7 +121,9 @@ const mailTransporter = emailConfigured
       },
     })
   : null;
-const emailChannelConfigured = Boolean(plunkConfigured || resendConfigured || mailTransporter);
+const emailChannelConfigured = Boolean(
+  mailerSendConfigured || resendConfigured || mailTransporter
+);
 const whatsappCloudConfigured = Boolean(
   WHATSAPP_ACCESS_TOKEN && WHATSAPP_PHONE_NUMBER_ID && WHATSAPP_RECIPIENT_PHONE
 );
@@ -927,33 +929,48 @@ const createCustomerOrderEmailHtml = (order) => {
 const sendPlainTextEmail = async ({ to, subject, text, html = "", replyTo = "" }) => {
   const normalizedReplyTo = isNonEmptyString(replyTo)
     ? replyTo.trim()
-    : isNonEmptyString(PLUNK_REPLY_TO)
-      ? PLUNK_REPLY_TO
+    : isNonEmptyString(MAILERSEND_REPLY_TO)
+      ? MAILERSEND_REPLY_TO
     : isNonEmptyString(RESEND_REPLY_TO)
       ? RESEND_REPLY_TO
       : "";
 
-  if (plunkConfigured && plunkSender) {
-    const response = await fetch("https://api.useplunk.com/v1/send", {
+  if (mailerSendConfigured && mailerSendSender) {
+    const replyToMailbox = parseMailbox(normalizedReplyTo);
+    const response = await fetch("https://api.mailersend.com/v1/email", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${PLUNK_API_KEY}`,
+        Authorization: `Bearer ${MAILERSEND_API_KEY}`,
       },
       body: JSON.stringify({
-        to,
+        from: {
+          email: mailerSendSender.email,
+          ...(mailerSendSender.name ? { name: mailerSendSender.name } : {}),
+        },
+        to: [{ email: to }],
         subject,
-        body: html || text,
-        from: plunkSender.email,
-        ...(plunkSender.name ? { name: plunkSender.name } : {}),
-        ...(normalizedReplyTo ? { reply: normalizedReplyTo } : {}),
+        text,
+        ...(html ? { html } : {}),
+        ...(replyToMailbox
+          ? {
+              reply_to: {
+                email: replyToMailbox.email,
+                ...(replyToMailbox.name && replyToMailbox.name !== replyToMailbox.email
+                  ? { name: replyToMailbox.name }
+                  : {}),
+              },
+            }
+          : {}),
       }),
     });
 
     if (!response.ok) {
       const body = await response.text();
       throw new Error(
-        `Plunk email API failed (${response.status}): ${body} [key:${maskSecret(PLUNK_API_KEY)}]`
+        `MailerSend email API failed (${response.status}): ${body} [key:${maskSecret(
+          MAILERSEND_API_KEY
+        )}]`
       );
     }
     return true;
@@ -1279,7 +1296,7 @@ app.get("/api/health", (_req, res) => {
     notificationChannels: {
       email: Boolean(SELLER_NOTIFY_EMAIL && emailChannelConfigured),
       contactEmail: Boolean(CONTACT_NOTIFY_EMAIL && emailChannelConfigured),
-      emailViaPlunkApi: Boolean(plunkConfigured),
+      emailViaMailersendApi: Boolean(mailerSendConfigured),
       emailViaResendApi: Boolean(resendConfigured),
       emailViaSmtp: Boolean(mailTransporter),
       whatsapp: Boolean(whatsappCloudConfigured || WHATSAPP_WEBHOOK_URL),
