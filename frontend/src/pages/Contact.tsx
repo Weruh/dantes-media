@@ -210,7 +210,7 @@ const Contact = () => {
           {[
             { title: "Phone", value: "+254 (705) 126 578" },
             { title: "WhatsApp", value: "+254 (705) 126 578" },
-            { title: "Email", value: "info@dantesmediasolutions.co.ke" },
+            { title: "Email", value: "info@dantesmedia8@gmail.com" },
             { title: "Location", value: "Nairobi/Mombasa" },
           ].map((item) => (
             <Card key={item.title}>
