@@ -55,7 +55,7 @@ const serviceOptions = [
 ];
 
 const quoteFallbackError =
-  "Online quote submission is temporarily unavailable. Call +254 (705) 126 578 or email info@dantesmediasolutions.co.ke.";
+  "Online quote submission is temporarily unavailable. Call +254 (705) 126 578 or email info@dantesmedia8@gmail.com.";
 
 const toQuoteErrorMessage = (error: unknown) => {
   if (!(error instanceof Error)) {
