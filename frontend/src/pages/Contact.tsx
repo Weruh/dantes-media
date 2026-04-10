@@ -55,7 +55,7 @@ const serviceOptions = [
 ];
 
 const quoteFallbackError =
-  "Online quote submission is temporarily unavailable. Call +254(715) 578-015 or email info@dantesmediasolutions.co.ke.";
+  "Online quote submission is temporarily unavailable. Call +254 (705) 126 578 or email info@dantesmediasolutions.co.ke.";
 
 const toQuoteErrorMessage = (error: unknown) => {
   if (!(error instanceof Error)) {
@@ -208,8 +208,8 @@ const Contact = () => {
 
         <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {[
-            { title: "Phone", value: "+254(715) 578-015" },
-            { title: "WhatsApp", value: "+254(715) 578-015" },
+            { title: "Phone", value: "+254 (705) 126 578" },
+            { title: "WhatsApp", value: "+254 (705) 126 578" },
             { title: "Email", value: "info@dantesmediasolutions.co.ke" },
             { title: "Location", value: "Nairobi/Mombasa" },
           ].map((item) => (

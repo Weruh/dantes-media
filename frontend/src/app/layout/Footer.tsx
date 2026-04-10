@@ -31,7 +31,7 @@ const Footer = () => {
         <div className="text-sm text-ink-500">
           <h4 className="font-semibold text-ink-900">Contact</h4>
           <ul className="mt-3 space-y-2">
-            <li>Phone: +254(715) 578-015</li>
+            <li>Phone: +254 (705) 126 578</li>
             <li>Email: info@dantesmediasolution.co.ke</li>
           </ul>
           <div className="mt-4">
