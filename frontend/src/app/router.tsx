@@ -18,8 +18,18 @@ const About = lazy(() => import("../pages/About"));
 const Contact = lazy(() => import("../pages/Contact"));
 const PillarDetail = lazy(() => import("../pages/PillarDetail"));
 
+const RouteSpinner = () => (
+  <div className="flex min-h-[55vh] items-center justify-center px-6 py-16">
+    <div
+      aria-label="Loading page"
+      role="status"
+      className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-brand"
+    />
+  </div>
+);
+
 const PageLoader = ({ children }: { children: ReactNode }) => (
-  <Suspense fallback={<div className="px-6 py-16 text-ink-500">Loading...</div>}>
+  <Suspense fallback={<RouteSpinner />}>
     {children}
   </Suspense>
 );
