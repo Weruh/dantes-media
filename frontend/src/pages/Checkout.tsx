@@ -11,8 +11,7 @@ import { Button } from "../components/Button";
 import { Input, SelectField, Textarea } from "../components/Input";
 import Alert from "../components/Alert";
 import { useCart } from "../app/cart/CartContext";
-import { createApiUrl } from "../utils/api";
-import { parseJsonSafely } from "../utils/http";
+import { createCheckoutSession } from "../lib/backend";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Full name is required"),
@@ -151,42 +150,29 @@ const Checkout = () => {
     setPaymentError(null);
 
     try {
-      const response = await fetch(createApiUrl("/paystack/initialize"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const payload = await createCheckoutSession({
+        customer: {
+          fullName,
+          email,
+          phone,
+          address,
+          city,
+          county,
         },
-        body: JSON.stringify({
-          customer: {
-            fullName,
-            email,
-            phone,
-            address,
-            city,
-            county,
-          },
-          delivery: {
-            deliveryDate,
-            deliveryWindow,
-            deliveryNotes,
-          },
-          paymentPhone,
-          items: items.map((item) => ({ id: item.id, quantity: item.quantity })),
-        }),
+        delivery: {
+          deliveryDate,
+          deliveryWindow,
+          deliveryNotes,
+        },
+        paymentPhone,
+        items: items.map((item) => ({ id: item.id, quantity: item.quantity })),
       });
 
-      const payload = await parseJsonSafely<{
-        authorizationUrl?: string;
-        message?: string;
-      }>(response);
-
       const authorizationUrl = payload?.authorizationUrl;
-      if (!response.ok || !authorizationUrl) {
+      if (!authorizationUrl) {
         throw new Error(
           payload?.message ||
-            (response.status >= 500
-              ? "Payment service is unavailable. Ensure the backend API is running, then try again."
-              : "Unable to initialize payment.")
+            "Unable to initialize payment."
         );
       }
 
@@ -194,9 +180,12 @@ const Checkout = () => {
     } catch (error) {
       setPaymentStatus("error");
       const message = error instanceof Error ? error.message : "Unable to initialize payment.";
-      if (message.toLowerCase().includes("failed to fetch")) {
+      if (
+        message.toLowerCase().includes("failed to fetch") ||
+        message.toLowerCase().includes("functionsfetcherror")
+      ) {
         setPaymentError(
-          "Could not reach payment API. Start backend with `npm run dev:server` or `npm run dev:full`."
+          "Could not reach the Supabase function for checkout. Deploy the Edge Functions and try again."
         );
         return;
       }

@@ -13,7 +13,10 @@ dist-ssr
 *.local
 .env
 .env.*
-README.md
+!.env.example
+!frontend/.env.local
+!frontend/.env.production
+!supabase/functions/.env.example
 server/data/
 
 # Editor directories and files
@@ -30,3 +33,4 @@ server/data/
 frontend/dist/
 frontend/dist*.zip
 server*.zip
+supabase/.temp/

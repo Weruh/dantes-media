@@ -6,8 +6,7 @@ import Section from "../components/Section";
 import Alert from "../components/Alert";
 import { ButtonLink } from "../components/Button";
 import { useCart } from "../app/cart/CartContext";
-import { createApiUrl } from "../utils/api";
-import { parseJsonSafely } from "../utils/http";
+import { verifyCheckoutPayment } from "../lib/backend";
 
 type VerifyResponse = {
   paid: boolean;
@@ -39,14 +38,9 @@ const CheckoutVerify = () => {
     let cancelled = false;
     const verify = async () => {
       try {
-        const response = await fetch(
-          createApiUrl(`/paystack/verify/${encodeURIComponent(reference)}`)
-        );
-        const payload = await parseJsonSafely<Partial<VerifyResponse> & { message?: string }>(
-          response
-        );
+        const payload = await verifyCheckoutPayment(reference);
 
-        if (!response.ok || payload?.paid !== true) {
+        if (payload?.paid !== true) {
           throw new Error(payload?.message || "Payment was not verified.");
         }
 

@@ -11,8 +11,7 @@ import { Button } from "../components/Button";
 import { Input, SelectField, Textarea } from "../components/Input";
 import Alert from "../components/Alert";
 import SalesCTA from "../components/SalesCTA";
-import { createApiUrl } from "../utils/api";
-import { parseJsonSafely } from "../utils/http";
+import { submitQuoteRequest } from "../lib/backend";
 
 const phoneRegex = /^[+\d\s()-]{7,}$/;
 
@@ -158,18 +157,7 @@ const Contact = () => {
     setQuoteSubmitting(true);
 
     try {
-      const response = await fetch(createApiUrl("/contact/quote"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      });
-
-      const payload = await parseJsonSafely<{ message?: string }>(response);
-      if (!response.ok) {
-        throw new Error(payload?.message || "Unable to submit quote right now.");
-      }
+      const payload = await submitQuoteRequest(values);
 
       setQuoteSuccess(true);
       setQuoteSuccessMessage(payload?.message || "Thanks! We'll respond with next steps shortly.");

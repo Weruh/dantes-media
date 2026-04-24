@@ -1,10 +1,5 @@
 import type { ProductItem } from "./catalogTypes";
-import { createApiUrl } from "../utils/api";
-import { parseJsonSafely } from "../utils/http";
-
-type CustomProductsResponse = {
-  products?: unknown[];
-};
+import { loadCustomProducts as loadSupabaseCustomProducts } from "../lib/backend";
 
 let cachedCatalog: ProductItem[] | null = null;
 let inflightCatalogRequest: Promise<ProductItem[]> | null = null;
@@ -85,15 +80,7 @@ export const loadCatalogProducts = async (): Promise<ProductItem[]> => {
     const baseProducts = await loadBaseProducts();
 
     try {
-      const response = await fetch(createApiUrl("/products/custom"));
-      const payload = await parseJsonSafely<CustomProductsResponse>(response);
-
-      if (!response.ok) {
-        cachedCatalog = baseProducts;
-        return baseProducts;
-      }
-
-      const customProducts = (payload?.products || [])
+      const customProducts = (await loadSupabaseCustomProducts())
         .map((item) => normalizeProduct(item))
         .filter((item): item is ProductItem => item !== null);
 

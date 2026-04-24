@@ -23,11 +23,5 @@ export default defineConfig({
   ],
   server: {
     allowedHosts: ["unpatent-unsnaffled-radia.ngrok-free.dev"],
-    proxy: {
-      "/api": {
-        target: "http://localhost:8787",
-        changeOrigin: true,
-      },
-    },
   },
 });
