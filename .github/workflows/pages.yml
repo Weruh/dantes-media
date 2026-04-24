@@ -20,7 +20,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,10 +32,10 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Validate production API base URL
+      - name: Validate Supabase frontend config
         run: |
-          if [ -z "$VITE_API_BASE_URL" ]; then
-            echo "Repository variable VITE_API_BASE_URL is required for GitHub Pages builds."
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "Repository variables VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are required for GitHub Pages builds."
             exit 1
           fi
 
