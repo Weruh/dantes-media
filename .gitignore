@@ -1,3 +1,29 @@
+# Environment variables and local secrets
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!**/.env.example
+
+# Private keys, certificates, and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr
+*.jks
+*.keystore
+*secret*
+*secrets*
+*credential*
+*credentials*
+*service-account*
+serviceAccount*.json
+firebase-adminsdk*.json
+google-credentials*.json
+
 # Logs
 logs
 *.log
@@ -7,17 +33,21 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
-*.local
-.env
-.env.*
-!.env.example
-!frontend/.env.local
-!frontend/.env.production
-!supabase/functions/.env.example
+frontend/dist/
+frontend/dist*.zip
+server*.zip
+
+# Runtime/local data
 server/data/
+uploads/
+tmp/
+temp/
 
 # Editor directories and files
 .vscode/*
@@ -30,7 +60,5 @@ server/data/
 *.sln
 *.sw?
 
-frontend/dist/
-frontend/dist*.zip
-server*.zip
+# Supabase local state
 supabase/.temp/
