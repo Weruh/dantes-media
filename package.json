@@ -9,7 +9,7 @@
     "preview": "vite preview --config frontend/vite.config.ts",
     "supabase:db:push": "supabase db push --workdir supabase",
     "supabase:db:lint": "supabase db lint --local --workdir supabase",
-    "supabase:functions:deploy": "cd supabase && supabase functions deploy submit-quote --use-api && supabase functions deploy create-checkout-session --use-api && supabase functions deploy verify-payment --use-api && supabase functions deploy paystack-webhook --use-api --no-verify-jwt"
+    "supabase:functions:deploy": "cd supabase && supabase functions deploy submit-quote --use-api --no-verify-jwt && supabase functions deploy create-checkout-session --use-api --no-verify-jwt && supabase functions deploy verify-payment --use-api --no-verify-jwt && supabase functions deploy paystack-webhook --use-api --no-verify-jwt"
   },
   "engines": {
     "node": ">=20"

@@ -261,6 +261,29 @@ const assertAdminUser = async (): Promise<User> => {
   return user;
 };
 
+const getFunctionErrorMessage = async (error: unknown, fallback: string) => {
+  if (error instanceof Error) {
+    const context = (error as { context?: unknown }).context;
+
+    if (context instanceof Response) {
+      const response = context.clone();
+      const payload = await response.json().catch(async () => {
+        const text = await context.clone().text().catch(() => "");
+        return text ? { message: text } : null;
+      });
+
+      if (payload && typeof payload === "object" && "message" in payload) {
+        const message = String((payload as { message?: unknown }).message || "").trim();
+        if (message) return message;
+      }
+    }
+
+    if (error.message) return error.message;
+  }
+
+  return fallback;
+};
+
 export const signInAdmin = async (email: string, password: string) => {
   assertSupabaseConfigured();
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -399,7 +422,7 @@ export const submitQuoteRequest = async (payload: QuotePayload) => {
     body: payload,
   });
 
-  if (error) throw error;
+  if (error) throw new Error(await getFunctionErrorMessage(error, "Unable to submit quote request."));
   return (data || {}) as { message?: string };
 };
 
@@ -409,7 +432,7 @@ export const createCheckoutSession = async (payload: CheckoutPayload) => {
     body: payload,
   });
 
-  if (error) throw error;
+  if (error) throw new Error(await getFunctionErrorMessage(error, "Unable to initialize payment."));
   return (data || {}) as {
     authorizationUrl?: string;
     accessCode?: string;
@@ -424,7 +447,7 @@ export const verifyCheckoutPayment = async (reference: string) => {
     body: { reference },
   });
 
-  if (error) throw error;
+  if (error) throw new Error(await getFunctionErrorMessage(error, "Unable to verify payment."));
   return (data || {}) as {
     paid?: boolean;
     reference?: string;

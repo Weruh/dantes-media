@@ -174,9 +174,9 @@ const Shop = () => {
             Showing products in <span className="font-semibold text-ink-700">{activeCategory}</span>.
           </p>
         ) : null}
-        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visibleProducts.map((product) => (
-            <div key={product.id} className="[content-visibility:auto] [contain-intrinsic-size:450px]">
+            <div key={product.id} className="[content-visibility:auto] [contain-intrinsic-size:360px]">
               <ProductCard product={product} />
             </div>
           ))}

@@ -7,6 +7,22 @@ const PAYSTACK_CURRENCY = getSupabaseEnv("PAYSTACK_CURRENCY", "KES");
 const PAYSTACK_CALLBACK_URL = getSupabaseEnv("PAYSTACK_CALLBACK_URL");
 const SELLER_NOTIFY_EMAIL = getSupabaseEnv("SELLER_NOTIFY_EMAIL");
 
+const getPaystackSecretKey = () => {
+  if (!PAYSTACK_SECRET_KEY) {
+    throw new Error("PAYSTACK_SECRET_KEY is not set.");
+  }
+
+  if (
+    PAYSTACK_SECRET_KEY === "your-paystack-secret-key" ||
+    PAYSTACK_SECRET_KEY.startsWith("pk_") ||
+    !/^sk_(test|live)_/i.test(PAYSTACK_SECRET_KEY)
+  ) {
+    throw new Error("PAYSTACK_SECRET_KEY must be a valid Paystack secret key starting with sk_test_ or sk_live_.");
+  }
+
+  return PAYSTACK_SECRET_KEY;
+};
+
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
@@ -348,14 +364,12 @@ const createOrderEmailHtml = (
 };
 
 const paystackRequest = async (path: string, init: RequestInit = {}) => {
-  if (!PAYSTACK_SECRET_KEY) {
-    throw new Error("PAYSTACK_SECRET_KEY is not set.");
-  }
+  const paystackSecretKey = getPaystackSecretKey();
 
   const response = await fetch(`https://api.paystack.co${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+      Authorization: `Bearer ${paystackSecretKey}`,
       "Content-Type": "application/json",
       ...(init.headers || {}),
     },
@@ -767,12 +781,12 @@ export const verifyPaymentByReference = async (reference: string) => {
 };
 
 export const verifyPaystackWebhookSignature = async (signature: string, rawBody: string) => {
-  if (!PAYSTACK_SECRET_KEY) throw new Error("PAYSTACK_SECRET_KEY is not set.");
+  const paystackSecretKey = getPaystackSecretKey();
 
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(PAYSTACK_SECRET_KEY),
+    encoder.encode(paystackSecretKey),
     { name: "HMAC", hash: "SHA-512" },
     false,
     ["sign"]

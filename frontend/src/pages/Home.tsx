@@ -4,13 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import Section from "../components/Section";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
+import ProductCard from "../components/ProductCard";
 import SectionHeading from "../components/SectionHeading";
 import SalesCTA from "../components/SalesCTA";
-import { Button, ButtonLink } from "../components/Button";
+import { ButtonLink } from "../components/Button";
 import { projectsData } from "../data/projectsData";
 import { productSolutionImageMap, productSolutionsData } from "../data/productSolutionsData";
 import { testimonialsData } from "../data/testimonialsData";
-import { useCart } from "../app/cart/CartContext";
 import { useCatalogProducts } from "../hooks/useCatalogProducts";
 
 const HOME_SERVICE_PRIORITY = [
@@ -49,8 +49,6 @@ const Home = () => {
       image: productSolutionImageMap[solution.id] ?? "/assets/consultacy.jpg",
     }));
   }, []);
-  const { addItem } = useCart();
-
   const navigateToServiceProducts = (category: string) => {
     navigate(`/shop?category=${encodeURIComponent(category)}`);
   };
@@ -168,41 +166,10 @@ const Home = () => {
             Loading featured products...
           </div>
         ) : featuredProducts.length > 0 ? (
-          <div className="no-scrollbar mt-10 flex gap-6 overflow-x-auto pb-4">
+          <div className="no-scrollbar mt-10 flex gap-5 overflow-x-auto pb-4">
             {featuredProducts.map((product) => (
-              <div key={product.id} className="min-w-[260px]">
-                <Card className="flex h-full flex-col overflow-hidden rounded-none p-0 transition duration-300 hover:-translate-y-1 hover:shadow-lg">
-                  <div className="overflow-hidden bg-slate-100">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="block h-40 w-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </div>
-                  <div className="flex flex-1 flex-col p-6">
-                    <p className="text-sm font-semibold text-ink-900">{product.name}</p>
-                    <p className="mt-1 text-xs text-ink-500">{product.shortDesc}</p>
-                    <div className="mt-4 flex items-center justify-between gap-3">
-                      <Link
-                        to={`/shop/${product.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-brand-dark whitespace-nowrap"
-                      >
-                        <span>View</span>
-                        <span aria-hidden="true">&rarr;</span>
-                      </Link>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="px-0 text-xs font-semibold whitespace-nowrap tracking-normal"
-                        onClick={() => addItem(product)}
-                      >
-                        Add to cart
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
+              <div key={product.id} className="min-w-[235px] max-w-[270px] flex-1">
+                <ProductCard product={product} />
               </div>
             ))}
           </div>

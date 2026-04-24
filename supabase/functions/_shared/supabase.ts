@@ -18,12 +18,16 @@ const requireAnyEnv = (...names: string[]) => {
 };
 
 export const getServiceRoleClient = () =>
-  createClient(requireAnyEnv("VITE_SUPABASE_URL", "SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
+  createClient(
+    requireAnyEnv("SUPABASE_URL", "VITE_SUPABASE_URL"),
+    requireAnyEnv("SUPABASE_SERVICE_ROLE_KEY", "VITE_SUPABASE_SERVICE_ROLE_KEY"),
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
 
 export const getSupabaseEnv = (name: string, fallback = "") =>
   (Deno.env.get(name) || fallback).trim();

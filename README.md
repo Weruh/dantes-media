@@ -92,6 +92,16 @@ Optional email fallback:
 - `RESEND_FROM`
 - `RESEND_REPLY_TO`
 
+Set deployed function secrets with the Supabase CLI, replacing values with the
+real keys from each provider dashboard:
+
+```bash
+supabase secrets set PAYSTACK_SECRET_KEY=sk_test_xxx PAYSTACK_CURRENCY=KES PAYSTACK_CALLBACK_URL=https://dantesmediasolution.com/checkout/verify
+```
+
+`PAYSTACK_SECRET_KEY` must be a secret key that starts with `sk_test_` or
+`sk_live_`. Do not use the Paystack public key that starts with `pk_`.
+
 ## Deploying Supabase Functions
 
 Deploy these functions from `supabase/functions/`:

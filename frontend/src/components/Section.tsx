@@ -9,8 +9,11 @@ type SectionProps = {
   className?: string;
 };
 
+const hasVerticalPaddingOverride = (className?: string) =>
+  Boolean(className?.split(/\s+/).some((token) => /^(p[yt]?|p[bt]?)-/.test(token)));
+
 const Section = ({ title, subtitle, eyebrow, children, className }: SectionProps) => (
-  <section className={cn("py-16", className)}>
+  <section className={cn(!hasVerticalPaddingOverride(className) && "py-16", className)}>
     <div className="mx-auto max-w-6xl px-4">
       {eyebrow && (
         <div>
