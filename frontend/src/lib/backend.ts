@@ -168,6 +168,9 @@ export type CheckoutPayload = {
   }>;
 };
 
+const PRODUCT_IMAGE_BUCKET = "product-images";
+const MAX_PRODUCT_IMAGE_BYTES = 5 * 1024 * 1024;
+
 const toTimestamp = (value: string | null | undefined) => {
   if (!value) return null;
   const timestamp = Date.parse(value);
@@ -348,6 +351,33 @@ export const addCustomProduct = async (product: Omit<CustomProduct, "createdAt">
 
   if (error) throw error;
   return normalizeCustomProduct(data as CustomProductRow);
+};
+
+export const uploadCustomProductImage = async (file: File, productId: string) => {
+  await assertAdminUser();
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Choose an image file.");
+  }
+
+  if (file.size > MAX_PRODUCT_IMAGE_BYTES) {
+    throw new Error("Product image must be 5 MB or smaller.");
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const safeProductId = productId.replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+  const path = `${safeProductId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+
+  const { error } = await supabase.storage.from(PRODUCT_IMAGE_BUCKET).upload(path, file, {
+    cacheControl: "31536000",
+    contentType: file.type,
+    upsert: false,
+  });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 };
 
 export const loadOrders = async (status = "all") => {
