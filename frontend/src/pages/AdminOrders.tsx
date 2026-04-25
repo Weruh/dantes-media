@@ -18,10 +18,17 @@ import Alert from "../components/Alert";
 import { Input, SelectField, Textarea } from "../components/Input";
 import { Button } from "../components/Button";
 import { defaultProductCategories } from "../data/catalogTypes";
-import { resetCatalogCache } from "../data/productsApi";
+import {
+  loadManageableCatalogProducts,
+  resetCatalogCache,
+  type ManagedCatalogProduct,
+} from "../data/productsApi";
+import { cn } from "../utils/cn";
 import {
   addCustomProduct,
   buildSoldGoods,
+  deleteBaseCatalogProduct,
+  deleteCustomProduct,
   getCurrentAdminUser,
   loadCustomProducts,
   loadOrders,
@@ -108,17 +115,61 @@ const StatTile = ({ label, value, detail, icon: Icon }: StatTileProps) => (
 );
 
 const PanelHeader = ({ eyebrow, title, meta }: PanelHeaderProps) => (
-  <div className="flex flex-wrap items-start justify-between gap-3">
-    <div>
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="min-w-0">
       <p className="text-xs font-semibold uppercase text-ink-400">{eyebrow}</p>
       <h3 className="mt-1 text-lg font-semibold text-ink-900">{title}</h3>
     </div>
     {meta && (
-      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-ink-600">
+      <span className="w-fit rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-ink-600">
         {meta}
       </span>
     )}
   </div>
+);
+
+const TrashCanIcon = ({ className = "" }: { className?: string }) => (
+  <svg
+    className={className}
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M4.5 7.5h15"
+      stroke="#000000"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+    />
+    <path
+      d="M9 7.5V6.2C9 5 10 4 11.2 4h1.6C14 4 15 5 15 6.2v1.3"
+      stroke="#000000"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M6.8 9.2v8.2c0 1.5 1.2 2.6 2.6 2.6h5.2c1.4 0 2.6-1.1 2.6-2.6V9.2"
+      stroke="#000000"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M10.3 11.5v5"
+      stroke="#000000"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+    />
+    <path
+      d="M13.7 11.5v5"
+      stroke="#000000"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+    />
+  </svg>
 );
 
 const AdminOrders = () => {
@@ -137,6 +188,7 @@ const AdminOrders = () => {
   const [salesLoaded, setSalesLoaded] = useState(false);
   const [salesError, setSalesError] = useState("");
   const [customProducts, setCustomProducts] = useState<CustomProduct[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<ManagedCatalogProduct[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [catalogError, setCatalogError] = useState("");
@@ -152,8 +204,10 @@ const AdminOrders = () => {
   const [productSaving, setProductSaving] = useState(false);
   const [productError, setProductError] = useState("");
   const [productSuccess, setProductSuccess] = useState("");
+  const [productWarning, setProductWarning] = useState("");
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [productImagePreview, setProductImagePreview] = useState("");
+  const [deletingProductId, setDeletingProductId] = useState("");
 
   const isAuthenticated = loggedInEmail.trim().length > 0;
   const dashboardLoading = ordersLoading || salesLoading || catalogLoading || quotesLoading;
@@ -210,6 +264,7 @@ const AdminOrders = () => {
     setSoldGoods([]);
     setPaidOrdersCount(0);
     setCustomProducts([]);
+    setCatalogProducts([]);
     setQuotes([]);
   };
 
@@ -234,8 +289,12 @@ const AdminOrders = () => {
     setCatalogError("");
 
     try {
-      const products = await loadCustomProducts();
+      const [products, manageableProducts] = await Promise.all([
+        loadCustomProducts(),
+        loadManageableCatalogProducts(),
+      ]);
       setCustomProducts(products);
+      setCatalogProducts(manageableProducts);
     } catch (error) {
       setCatalogError(error instanceof Error ? error.message : "Unable to fetch products.");
     } finally {
@@ -336,6 +395,7 @@ const AdminOrders = () => {
   const handleProductImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     setProductError("");
+    setProductWarning("");
     setProductImageFile(file);
   };
 
@@ -348,6 +408,7 @@ const AdminOrders = () => {
     setProductSaving(true);
     setProductError("");
     setProductSuccess("");
+    setProductWarning("");
 
     try {
       const productId = toSlug(productForm.id || productForm.name);
@@ -355,9 +416,23 @@ const AdminOrders = () => {
         throw new Error("Product name or id is required.");
       }
 
-      const uploadedImage = productImageFile
-        ? await uploadCustomProductImage(productImageFile, productId)
-        : "";
+      let uploadedImage = "";
+      let imageUploadWarning = "";
+
+      if (productImageFile) {
+        try {
+          uploadedImage = await uploadCustomProductImage(productImageFile, productId);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+
+          if (message.startsWith("Product image storage is not set up.")) {
+            imageUploadWarning =
+              "Product saved without uploading the selected image. Create the product-images Supabase Storage bucket or apply the latest storage migration to enable uploads.";
+          } else {
+            throw error;
+          }
+        }
+      }
 
       await addCustomProduct({
         id: productId,
@@ -374,6 +449,7 @@ const AdminOrders = () => {
       });
 
       setProductSuccess("Product added successfully.");
+      setProductWarning(imageUploadWarning);
       setProductForm(defaultProductForm());
       setProductImageFile(null);
       resetCatalogCache();
@@ -382,6 +458,42 @@ const AdminOrders = () => {
       setProductError(error instanceof Error ? error.message : "Unable to add product.");
     } finally {
       setProductSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (product: ManagedCatalogProduct) => {
+    if (!isAuthenticated) {
+      setAuthError("Login with your Supabase admin account.");
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Delete "${product.name}" from the website catalog? This cannot be undone.`
+    );
+
+    if (!shouldDelete) return;
+
+    setDeletingProductId(product.id);
+    setCatalogError("");
+    setProductError("");
+    setProductSuccess("");
+    setProductWarning("");
+
+    try {
+      if (product.source === "custom") {
+        await deleteCustomProduct(product);
+      } else {
+        await deleteBaseCatalogProduct(product.id);
+      }
+
+      setCustomProducts((current) => current.filter((item) => item.id !== product.id));
+      setCatalogProducts((current) => current.filter((item) => item.id !== product.id));
+      resetCatalogCache();
+      setProductSuccess("Product deleted successfully.");
+    } catch (error) {
+      setCatalogError(error instanceof Error ? error.message : "Unable to delete product.");
+    } finally {
+      setDeletingProductId("");
     }
   };
 
@@ -397,7 +509,7 @@ const AdminOrders = () => {
         subtitle="Add products, monitor sales, review order records, and respond to quote requests."
       >
         <div className="space-y-6">
-          <Card className="rounded-xl bg-white p-5">
+          <Card className={cn("rounded-xl bg-white p-4 sm:p-5", !isAuthenticated && "mx-auto max-w-3xl")}>
             {isAuthenticated ? (
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div className="min-w-0">
@@ -420,7 +532,7 @@ const AdminOrders = () => {
                     type="button"
                     onClick={() => loadDashboard(status)}
                     disabled={dashboardLoading}
-                    className="h-[46px]"
+                    className="h-[46px] w-full sm:w-auto"
                   >
                     {dashboardLoading ? (
                       <Loader2 size={18} className="animate-spin" />
@@ -433,7 +545,7 @@ const AdminOrders = () => {
                     type="button"
                     variant="secondary"
                     onClick={handleLogout}
-                    className="h-[46px]"
+                    className="h-[46px] w-full sm:w-auto"
                   >
                     <LogOut size={18} />
                     Logout
@@ -441,7 +553,7 @@ const AdminOrders = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+              <div className="grid gap-4 md:grid-cols-2 md:items-end">
                 <Input
                   label="Supabase admin email"
                   type="email"
@@ -460,7 +572,7 @@ const AdminOrders = () => {
                   type="button"
                   onClick={handleLogin}
                   disabled={authLoading}
-                  className="h-[46px]"
+                  className="h-[46px] w-full md:col-span-2 md:mx-auto md:w-auto md:min-w-40"
                 >
                   {authLoading ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -508,7 +620,7 @@ const AdminOrders = () => {
               </div>
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-                <Card className="rounded-xl bg-white p-5">
+                <Card className="rounded-xl bg-white p-4 sm:p-5">
                   <PanelHeader
                     eyebrow="Product Catalog"
                     title="Add Product"
@@ -549,7 +661,7 @@ const AdminOrders = () => {
                     />
                   </div>
 
-                  <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,260px)]">
                     <div className="space-y-4">
                       <Input
                         label="Image URL or asset path"
@@ -608,8 +720,13 @@ const AdminOrders = () => {
                     />
                   </div>
 
-                  <div className="mt-5 flex flex-wrap items-center gap-3">
-                    <Button type="button" onClick={handleAddProduct} disabled={productSaving}>
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                    <Button
+                      type="button"
+                      onClick={handleAddProduct}
+                      disabled={productSaving}
+                      className="w-full sm:w-auto"
+                    >
                       {productSaving ? (
                         <Loader2 size={18} className="animate-spin" />
                       ) : (
@@ -620,6 +737,12 @@ const AdminOrders = () => {
                     {productSuccess && <Alert tone="success">{productSuccess}</Alert>}
                   </div>
 
+                  {productWarning && (
+                    <Alert tone="info" className="mt-4">
+                      {productWarning}
+                    </Alert>
+                  )}
+
                   {productError && (
                     <Alert tone="error" className="mt-4">
                       {productError}
@@ -628,11 +751,11 @@ const AdminOrders = () => {
                 </Card>
 
                 <div className="space-y-6">
-                  <Card className="rounded-xl bg-white p-5">
+                  <Card className="rounded-xl bg-white p-4 sm:p-5">
                     <PanelHeader
                       eyebrow="Catalog"
-                      title="Custom Products"
-                      meta={`${customProducts.length} total`}
+                      title="Website Products"
+                      meta={`${catalogProducts.length} visible`}
                     />
                     {catalogError && (
                       <Alert tone="error" className="mt-4">
@@ -644,27 +767,46 @@ const AdminOrders = () => {
                       {catalogLoaded &&
                         !catalogLoading &&
                         !catalogError &&
-                        customProducts.map((product) => (
+                        catalogProducts.map((product) => (
                           <div
                             key={product.id}
-                            className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm"
+                            className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="min-w-0">
                               <p className="truncate font-semibold text-ink-900">{product.name}</p>
-                              <p className="truncate text-xs text-ink-400">{product.id}</p>
+                              <p className="truncate text-xs text-ink-400">
+                                {product.id} - {product.source === "custom" ? "custom" : "built in"}
+                              </p>
                             </div>
-                            <p className="shrink-0 font-semibold text-ink-700">
-                              {formatCurrency("KES", product.price)}
-                            </p>
+                            <div className="flex items-center justify-between gap-2 sm:shrink-0 sm:justify-start">
+                              <p className="min-w-0 truncate font-semibold text-ink-700">
+                                {formatCurrency("KES", product.price)}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-9 w-9 rounded-md border-slate-200 bg-white px-0 !text-black shadow-sm hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                onClick={() => handleDeleteProduct(product)}
+                                disabled={deletingProductId === product.id}
+                                aria-label={`Delete ${product.name}`}
+                                title="Delete product"
+                              >
+                                {deletingProductId === product.id ? (
+                                  <Loader2 size={17} className="animate-spin" color="currentColor" />
+                                ) : (
+                                  <TrashCanIcon className="block h-6 w-6 shrink-0" />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         ))}
-                      {catalogLoaded && !catalogError && customProducts.length === 0 && (
-                        <Alert tone="info">No custom products yet.</Alert>
+                      {catalogLoaded && !catalogError && catalogProducts.length === 0 && (
+                        <Alert tone="info">No visible products found.</Alert>
                       )}
                     </div>
                   </Card>
 
-                  <Card className="rounded-xl bg-white p-5">
+                  <Card className="rounded-xl bg-white p-4 sm:p-5">
                     <PanelHeader
                       eyebrow="Sales"
                       title="Sold Goods"
@@ -684,12 +826,12 @@ const AdminOrders = () => {
                             key={good.id}
                             className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm"
                           >
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                               <div className="min-w-0">
                                 <p className="truncate font-semibold text-ink-900">{good.name}</p>
                                 <p className="text-xs text-ink-500">Qty sold: {good.quantitySold}</p>
                               </div>
-                              <p className="shrink-0 font-semibold text-ink-700">
+                              <p className="font-semibold text-ink-700 sm:shrink-0">
                                 {formatCurrency("KES", good.revenue)}
                               </p>
                             </div>
@@ -709,8 +851,8 @@ const AdminOrders = () => {
                 </div>
               </div>
 
-              <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.75fr)_minmax(0,1.25fr)]">
-                <Card className="rounded-xl bg-white p-5">
+              <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
+                <Card className="rounded-xl bg-white p-4 sm:p-5">
                   <PanelHeader eyebrow="Leads" title="Quote Requests" meta={`${quotesCount} stored`} />
                   {quotesError && (
                     <Alert tone="error" className="mt-4">
@@ -723,13 +865,13 @@ const AdminOrders = () => {
                     ) : (
                       quotes.map((quote) => (
                         <div key={quote.id} className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0">
                               <p className="truncate font-semibold text-ink-900">{quote.fullName}</p>
-                              <p className="truncate text-ink-600">{quote.email}</p>
+                              <p className="break-words text-ink-600">{quote.email}</p>
                               <p className="text-ink-600">{quote.phone}</p>
                             </div>
-                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase text-ink-500">
+                            <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase text-ink-500 sm:shrink-0">
                               {quote.notificationStatus}
                             </span>
                           </div>
@@ -750,7 +892,7 @@ const AdminOrders = () => {
                   </div>
                 </Card>
 
-                <Card className="rounded-xl bg-white p-5">
+                <Card className="rounded-xl bg-white p-4 sm:p-5">
                   <PanelHeader
                     eyebrow="Orders"
                     title="Order Records"
@@ -764,15 +906,17 @@ const AdminOrders = () => {
                   <div className="mt-4 space-y-4">
                     {orders.map((order) => (
                       <div key={order.reference} className="rounded-xl border border-slate-200 bg-white p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
                             <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold uppercase text-ink-700">
                               {order.status}
                             </span>
-                            <h4 className="mt-2 text-base font-semibold text-ink-900">{order.reference}</h4>
-                            <p className="mt-1 text-sm text-ink-500">{order.customer.fullName}</p>
+                            <h4 className="mt-2 break-words text-base font-semibold text-ink-900">
+                              {order.reference}
+                            </h4>
+                            <p className="mt-1 break-words text-sm text-ink-500">{order.customer.fullName}</p>
                           </div>
-                          <div className="text-right text-sm">
+                          <div className="text-sm sm:shrink-0 sm:text-right">
                             <p className="font-semibold text-ink-900">
                               {formatCurrency(order.currency, order.amount)}
                             </p>
@@ -783,8 +927,8 @@ const AdminOrders = () => {
                         <div className="mt-4 grid gap-3 text-sm text-ink-700 md:grid-cols-2">
                           <div className="rounded-xl bg-slate-50 p-3">
                             <p className="font-semibold text-ink-900">Customer</p>
-                            <p className="mt-1">{order.customer.email}</p>
-                            <p>{order.customer.phone}</p>
+                            <p className="mt-1 break-words">{order.customer.email}</p>
+                            <p className="break-words">{order.customer.phone}</p>
                             <p className="mt-1 text-ink-500">
                               {order.customer.address}, {order.customer.city}, {order.customer.county}
                             </p>
@@ -803,12 +947,12 @@ const AdminOrders = () => {
                           {order.items.map((item) => (
                             <div
                               key={`${order.reference}-${item.id}`}
-                              className="flex items-center justify-between gap-3 px-3 py-2 text-sm text-ink-700"
+                              className="flex flex-col gap-1 px-3 py-2 text-sm text-ink-700 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                             >
-                              <p className="min-w-0 truncate">
+                              <p className="min-w-0 break-words">
                                 {item.name} <span className="text-ink-500">x{item.quantity}</span>
                               </p>
-                              <p className="shrink-0 font-semibold text-ink-900">
+                              <p className="font-semibold text-ink-900 sm:shrink-0">
                                 {typeof item.lineTotal === "number"
                                   ? formatCurrency(order.currency, item.lineTotal)
                                   : "N/A"}

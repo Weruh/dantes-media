@@ -54,9 +54,12 @@ npm run build
 ## Supabase Setup
 
 1. Create a Supabase project.
-2. Apply the database migration from [`supabase/migrations/20260424000000_initial_schema.sql`](supabase/migrations/20260424000000_initial_schema.sql), or run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor.
+2. Apply all migrations in [`supabase/migrations/`](supabase/migrations), or run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor.
 3. Create an admin user in Supabase Auth.
 4. Set that user’s `app_metadata.role` to `admin`.
+
+Product image uploads require the `product-images` Supabase Storage bucket from
+[`supabase/migrations/20260424010000_product_images_storage.sql`](supabase/migrations/20260424010000_product_images_storage.sql).
 
 The admin dashboard signs in with Supabase Auth directly. A normal authenticated user without `app_metadata.role = admin` will be blocked by RLS and the frontend admin check.
 

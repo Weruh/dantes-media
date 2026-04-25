@@ -65,6 +65,17 @@ type QuoteRequestRow = {
   notification_error: string | null;
 };
 
+type DeletedCatalogProductRow = {
+  product_id: string;
+};
+
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
 export type CustomProduct = {
   id: string;
   name: string;
@@ -287,6 +298,21 @@ const getFunctionErrorMessage = async (error: unknown, fallback: string) => {
   return fallback;
 };
 
+const getSupabaseErrorMessage = (error: SupabaseErrorLike, fallback: string) => {
+  const message = String(error.message || "").trim();
+  return message || fallback;
+};
+
+const isMissingDeletedCatalogTableError = (error: SupabaseErrorLike) => {
+  const message = `${error.message || ""} ${error.details || ""} ${error.hint || ""}`.toLowerCase();
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    message.includes("schema cache") ||
+    message.includes("relation") && message.includes("does not exist")
+  );
+};
+
 export const signInAdmin = async (email: string, password: string) => {
   assertSupabaseConfigured();
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -312,6 +338,14 @@ export const signOutAdmin = async () => {
 export const getCurrentAdminUser = async () => {
   assertSupabaseConfigured();
   const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) throw sessionError;
+  if (!session) return null;
+
+  const {
     data: { user },
     error,
   } = await supabase.auth.getUser();
@@ -329,6 +363,16 @@ export const loadCustomProducts = async () => {
 
   if (error) throw error;
   return ((data || []) as CustomProductRow[]).map(normalizeCustomProduct);
+};
+
+export const loadDeletedCatalogProductIds = async () => {
+  assertSupabaseConfigured();
+  const { data, error } = await supabase.from("deleted_catalog_products").select("product_id");
+
+  if (error) throw error;
+  return ((data || []) as DeletedCatalogProductRow[])
+    .map((row) => row.product_id.trim())
+    .filter(Boolean);
 };
 
 export const addCustomProduct = async (product: Omit<CustomProduct, "createdAt">) => {
@@ -353,6 +397,54 @@ export const addCustomProduct = async (product: Omit<CustomProduct, "createdAt">
   return normalizeCustomProduct(data as CustomProductRow);
 };
 
+const getProductImageStoragePath = (image: string) => {
+  if (!image) return "";
+
+  try {
+    const url = new URL(image);
+    const publicPath = `/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/`;
+    const pathIndex = url.pathname.indexOf(publicPath);
+
+    if (pathIndex === -1) return "";
+    return decodeURIComponent(url.pathname.slice(pathIndex + publicPath.length));
+  } catch {
+    return "";
+  }
+};
+
+export const deleteCustomProduct = async (product: Pick<CustomProduct, "id" | "image">) => {
+  await assertAdminUser();
+
+  const { error } = await supabase.from("custom_products").delete().eq("id", product.id);
+  if (error) throw new Error(getSupabaseErrorMessage(error, "Unable to delete product."));
+
+  const imagePath = getProductImageStoragePath(product.image);
+  if (imagePath) {
+    await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove([imagePath]);
+  }
+};
+
+export const deleteBaseCatalogProduct = async (productId: string) => {
+  await assertAdminUser();
+
+  const id = productId.trim();
+  if (!id) throw new Error("Product id is required.");
+
+  const { error } = await supabase
+    .from("deleted_catalog_products")
+    .upsert({ product_id: id }, { onConflict: "product_id" });
+
+  if (error) {
+    if (isMissingDeletedCatalogTableError(error)) {
+      throw new Error(
+        "Base product deletion needs the deleted_catalog_products table. Apply the latest Supabase migration, then try again."
+      );
+    }
+
+    throw new Error(getSupabaseErrorMessage(error, "Unable to delete product."));
+  }
+};
+
 export const uploadCustomProductImage = async (file: File, productId: string) => {
   await assertAdminUser();
 
@@ -374,7 +466,15 @@ export const uploadCustomProductImage = async (file: File, productId: string) =>
     upsert: false,
   });
 
-  if (error) throw error;
+  if (error) {
+    if (/bucket not found/i.test(error.message)) {
+      throw new Error(
+        "Product image storage is not set up. Create the product-images Supabase Storage bucket or apply the latest database migration."
+      );
+    }
+
+    throw error;
+  }
 
   const { data } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
   return data.publicUrl;

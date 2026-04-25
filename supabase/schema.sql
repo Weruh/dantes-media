@@ -53,6 +53,12 @@ create table if not exists public.orders (
   whatsapp_notified_at timestamptz null
 );
 
+create table if not exists public.deleted_catalog_products (
+  product_id text primary key,
+  deleted_at timestamptz not null default timezone('utc', now()),
+  deleted_by uuid null default auth.uid()
+);
+
 create index if not exists orders_status_created_at_idx
   on public.orders (status, created_at desc);
 
@@ -62,6 +68,7 @@ create index if not exists quote_requests_created_at_idx
 alter table public.custom_products enable row level security;
 alter table public.quote_requests enable row level security;
 alter table public.orders enable row level security;
+alter table public.deleted_catalog_products enable row level security;
 
 drop policy if exists "custom_products_public_read" on public.custom_products;
 create policy "custom_products_public_read"
@@ -88,10 +95,25 @@ create policy "orders_admin_read"
   for select
   using (public.is_admin());
 
+drop policy if exists "deleted_catalog_products_public_read" on public.deleted_catalog_products;
+create policy "deleted_catalog_products_public_read"
+  on public.deleted_catalog_products
+  for select
+  using (true);
+
+drop policy if exists "deleted_catalog_products_admin_manage" on public.deleted_catalog_products;
+create policy "deleted_catalog_products_admin_manage"
+  on public.deleted_catalog_products
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
 grant usage on schema public to anon, authenticated;
 grant execute on function public.is_admin() to anon, authenticated;
 grant select on public.custom_products to anon, authenticated;
 grant insert, update, delete on public.custom_products to authenticated;
+grant select on public.deleted_catalog_products to anon, authenticated;
+grant insert, update, delete on public.deleted_catalog_products to authenticated;
 grant select on public.quote_requests to authenticated;
 grant select on public.orders to authenticated;
 

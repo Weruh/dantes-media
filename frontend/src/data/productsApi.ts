@@ -1,5 +1,12 @@
 import type { ProductItem } from "./catalogTypes";
-import { loadCustomProducts as loadSupabaseCustomProducts } from "../lib/backend";
+import {
+  loadCustomProducts as loadSupabaseCustomProducts,
+  loadDeletedCatalogProductIds,
+} from "../lib/backend";
+
+export type ManagedCatalogProduct = ProductItem & {
+  source: "base" | "custom";
+};
 
 let cachedCatalog: ProductItem[] | null = null;
 let inflightCatalogRequest: Promise<ProductItem[]> | null = null;
@@ -11,7 +18,7 @@ export const resetCatalogCache = () => {
   inflightCatalogRequest = null;
 };
 
-const loadBaseProducts = async (): Promise<ProductItem[]> => {
+export const loadBaseProducts = async (): Promise<ProductItem[]> => {
   if (cachedBaseProducts) return cachedBaseProducts;
   if (inflightBaseProductsRequest) return inflightBaseProductsRequest;
 
@@ -72,6 +79,9 @@ const dedupeById = (items: ProductItem[]) => {
   return Array.from(byId.values());
 };
 
+const removeDeletedProducts = <T extends ProductItem>(items: T[], deletedIds: Set<string>) =>
+  items.filter((item) => !deletedIds.has(item.id));
+
 export const loadCatalogProducts = async (): Promise<ProductItem[]> => {
   if (cachedCatalog) return cachedCatalog;
   if (inflightCatalogRequest) return inflightCatalogRequest;
@@ -80,11 +90,16 @@ export const loadCatalogProducts = async (): Promise<ProductItem[]> => {
     const baseProducts = await loadBaseProducts();
 
     try {
-      const customProducts = (await loadSupabaseCustomProducts())
+      const [deletedProductIds, customProductRows] = await Promise.all([
+        loadDeletedCatalogProductIds().catch(() => []),
+        loadSupabaseCustomProducts(),
+      ]);
+      const deletedIds = new Set(deletedProductIds);
+      const customProducts = customProductRows
         .map((item) => normalizeProduct(item))
         .filter((item): item is ProductItem => item !== null);
 
-      cachedCatalog = dedupeById([...baseProducts, ...customProducts]);
+      cachedCatalog = removeDeletedProducts(dedupeById([...baseProducts, ...customProducts]), deletedIds);
       return cachedCatalog;
     } catch {
       cachedCatalog = baseProducts;
@@ -95,4 +110,25 @@ export const loadCatalogProducts = async (): Promise<ProductItem[]> => {
   })();
 
   return inflightCatalogRequest;
+};
+
+export const loadManageableCatalogProducts = async (): Promise<ManagedCatalogProduct[]> => {
+  const [baseProducts, customProductRows, deletedProductIds] = await Promise.all([
+    loadBaseProducts(),
+    loadSupabaseCustomProducts(),
+    loadDeletedCatalogProductIds().catch(() => []),
+  ]);
+  const deletedIds = new Set(deletedProductIds);
+  const customProducts = customProductRows
+    .map((item) => normalizeProduct(item))
+    .filter((item): item is ProductItem => item !== null);
+  const customIds = new Set(customProducts.map((product) => product.id));
+  const products = [
+    ...baseProducts
+      .filter((product) => !customIds.has(product.id))
+      .map((product) => ({ ...product, source: "base" as const })),
+    ...customProducts.map((product) => ({ ...product, source: "custom" as const })),
+  ];
+
+  return removeDeletedProducts(products, deletedIds);
 };
